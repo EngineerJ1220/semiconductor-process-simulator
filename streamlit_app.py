@@ -14,13 +14,65 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown(
+    """
+    <style>
+    /* 넓은 모니터에서도 콘텐츠가 지나치게 벌어지지 않도록 중앙 정렬 */
+    [data-testid="stMainBlockContainer"],
+    .block-container {
+        max-width: 1480px;
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: 2rem;
+        padding-right: 2rem;
+        padding-top: 1.5rem;
+    }
+
+    /* 표와 차트 사이 여백을 조금 줄임 */
+    div[data-testid="stVerticalBlock"] {
+        gap: 0.85rem;
+    }
+
+    /* 2열 대시보드의 컬럼 간격 */
+    div[data-testid="stHorizontalBlock"] {
+        gap: 1.25rem;
+    }
+
+    /* 중간 크기 화면 */
+    @media (max-width: 1500px) {
+        [data-testid="stMainBlockContainer"],
+        .block-container {
+            max-width: 1280px;
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+        }
+    }
+
+    /* 노트북·태블릿 */
+    @media (max-width: 1100px) {
+        [data-testid="stMainBlockContainer"],
+        .block-container {
+            max-width: 100%;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        div[data-testid="stHorizontalBlock"] {
+            gap: 0.8rem;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 WAFERS_PER_LOT = 25
 TARGET_THICKNESS = 100.0
 LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v1.2.0"
+APP_VERSION = "v1.2.1"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -580,6 +632,7 @@ with info_col1:
     with st.expander("업데이트 내역", expanded=False):
         st.markdown(
             """
+            - **v1.2.1**: 본문 최대 폭 제한, 중앙 정렬, 넓은 모니터 레이아웃 개선
             - **v1.2.0**: 분석 화면 2열 대시보드 구성, 그래프 크기 축소, Raw Data 분리
             - **v1.1.1**: 공정 변수 그래프 툴팁 명칭 개선, 버전 정보 추가
             - **v1.1**: Al·Cu·Ti·Ta 선택, 재료별 Recipe, 예상 면저항 기능 추가
