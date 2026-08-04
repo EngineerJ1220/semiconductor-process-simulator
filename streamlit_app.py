@@ -20,7 +20,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v1.1.1"
+APP_VERSION = "v1.2.0"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -574,27 +574,30 @@ st.caption(
     "재료 선택, 면저항 추정, Lot별 이상 진단"
 )
 
-with st.expander("업데이트 내역", expanded=False):
-    st.markdown(
-        """
-        - **v1.1.1**: 그래프 크기 조정, 공정 변수 그래프 툴팁 명칭 개선, 버전 정보 추가
-        - **v1.1**: Al·Cu·Ti·Ta 선택, 재료별 Recipe, 예상 면저항 기능 추가
-        - **v1.0**: Sputter Lot 생성, 랜덤 이상 주입, 진단 및 정답 비교 기능 구현
-        """
-    )
+info_col1, info_col2 = st.columns(2)
 
-with st.expander(
-    "프로젝트 안내와 모델의 한계"
-):
-    st.markdown(
-        """
-        - 실제 기업 Recipe나 생산 데이터를 사용하지 않은 교육용 합성 데이터 시뮬레이터입니다.
-        - 재료별 증착률과 Recipe는 비교 학습을 위해 단순화한 가정값입니다.
-        - 녹는점과 밀도는 참고 정보이며 Sputter 계산식에 직접 사용하지 않습니다.
-        - 면저항은 재료의 기준 비저항과 생성된 두께를 이용한 추정값이며 실제 측정값이 아닙니다.
-        - 실제 박막 비저항은 결정상, 입도, 불순물, 표면·입계 산란 등에 따라 달라질 수 있습니다.
-        """
-    )
+with info_col1:
+    with st.expander("업데이트 내역", expanded=False):
+        st.markdown(
+            """
+            - **v1.2.0**: 분석 화면 2열 대시보드 구성, 그래프 크기 축소, Raw Data 분리
+            - **v1.1.1**: 공정 변수 그래프 툴팁 명칭 개선, 버전 정보 추가
+            - **v1.1**: Al·Cu·Ti·Ta 선택, 재료별 Recipe, 예상 면저항 기능 추가
+            - **v1.0**: Sputter Lot 생성, 랜덤 이상 주입, 진단 및 정답 비교 기능 구현
+            """
+        )
+
+with info_col2:
+    with st.expander("프로젝트 안내와 모델의 한계", expanded=False):
+        st.markdown(
+            """
+            - 실제 기업 Recipe나 생산 데이터를 사용하지 않은 교육용 합성 데이터 시뮬레이터입니다.
+            - 재료별 증착률과 Recipe는 비교 학습을 위해 단순화한 가정값입니다.
+            - 녹는점과 밀도는 참고 정보이며 Sputter 계산식에 직접 사용하지 않습니다.
+            - 면저항은 재료의 기준 비저항과 생성된 두께를 이용한 추정값이며 실제 측정값이 아닙니다.
+            - 실제 박막 비저항은 결정상, 입도, 불순물, 표면·입계 산란 등에 따라 달라질 수 있습니다.
+            """
+        )
 
 material_options = list(MATERIALS.keys())
 
@@ -817,200 +820,351 @@ metric_col4.metric(
 )
 
 if not summary_df.empty:
-    st.subheader("1. 두께 추이")
+    st.subheader("공정 분석 대시보드")
 
-    thickness_fig, thickness_ax = plt.subplots(
-        figsize=(8, 3.2)
-    )
+    dashboard_col1, dashboard_col2 = st.columns(2)
 
-    thickness_ax.scatter(
-        raw_df["lot"],
-        raw_df["thickness_nm"],
-        alpha=0.45,
-        label="Wafer",
-    )
+    # -----------------------------------------------------
+    # 왼쪽 위: 두께 추이
+    # -----------------------------------------------------
+    with dashboard_col1:
+        st.markdown("#### 1. 두께 추이")
 
-    thickness_ax.plot(
-        summary_df["lot"],
-        summary_df["mean_thickness_nm"],
-        marker="o",
-        linewidth=2,
-        label="Lot mean",
-    )
-
-    thickness_ax.axhline(
-        TARGET_THICKNESS,
-        linestyle="--",
-        label="Target",
-    )
-    thickness_ax.axhline(
-        LOWER_SPEC,
-        linestyle=":",
-        label="LSL",
-    )
-    thickness_ax.axhline(
-        UPPER_SPEC,
-        linestyle=":",
-        label="USL",
-    )
-
-    thickness_ax.set_xlabel("Lot")
-    thickness_ax.set_ylabel("Thickness (nm)")
-    thickness_ax.set_xticks(
-        summary_df["lot"]
-    )
-    thickness_ax.grid(alpha=0.25)
-    thickness_ax.legend(fontsize=8)
-    thickness_fig.tight_layout()
-
-    st.pyplot(thickness_fig, width="content")
-
-    st.subheader(
-        "2. Setpoint 대비 공정 변수 변화"
-    )
-
-    process_deviation = pd.DataFrame({
-        "Lot": summary_df["lot"],
-        "Power (%)": (
-            (
-                summary_df["mean_power_w"]
-                - recipe["power_w"]
+        wafer_points = (
+            alt.Chart(raw_df)
+            .mark_circle(size=48, opacity=0.42)
+            .encode(
+                x=alt.X(
+                    "lot:O",
+                    title="Lot",
+                ),
+                y=alt.Y(
+                    "thickness_nm:Q",
+                    title="Thickness (nm)",
+                    scale=alt.Scale(
+                        domain=[
+                            LOWER_SPEC - 0.3,
+                            UPPER_SPEC + 0.3,
+                        ]
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "lot:O",
+                        title="Lot",
+                    ),
+                    alt.Tooltip(
+                        "wafer:Q",
+                        title="Wafer",
+                    ),
+                    alt.Tooltip(
+                        "thickness_nm:Q",
+                        title="두께 (nm)",
+                        format=".2f",
+                    ),
+                ],
             )
-            / recipe["power_w"]
-            * 100
-        ),
-        "Ar Flow (%)": (
-            (
-                summary_df["mean_ar_flow_sccm"]
-                - recipe["ar_flow_sccm"]
-            )
-            / recipe["ar_flow_sccm"]
-            * 100
-        ),
-        "Pressure (%)": (
-            (
-                summary_df["mean_pressure_mtorr"]
-                - recipe["pressure_mtorr"]
-            )
-            / recipe["pressure_mtorr"]
-            * 100
-        ),
-    })
+        )
 
-    process_long = process_deviation.melt(
-        id_vars="Lot",
-        var_name="공정 변수",
-        value_name="Setpoint 대비 편차 (%)",
-    )
+        lot_mean_line = (
+            alt.Chart(summary_df)
+            .mark_line(point=True, strokeWidth=2.5)
+            .encode(
+                x=alt.X(
+                    "lot:O",
+                    title="Lot",
+                ),
+                y=alt.Y(
+                    "mean_thickness_nm:Q",
+                    title="Thickness (nm)",
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "lot:O",
+                        title="Lot",
+                    ),
+                    alt.Tooltip(
+                        "mean_thickness_nm:Q",
+                        title="Lot 평균 (nm)",
+                        format=".3f",
+                    ),
+                ],
+            )
+        )
 
-    process_chart = (
-        alt.Chart(process_long)
-        .mark_line(point=True)
-        .encode(
-            x=alt.X(
-                "Lot:O",
-                title="Lot",
+        thickness_limits = pd.DataFrame({
+            "기준": ["USL", "Target", "LSL"],
+            "두께": [
+                UPPER_SPEC,
+                TARGET_THICKNESS,
+                LOWER_SPEC,
+            ],
+        })
+
+        limit_rules = (
+            alt.Chart(thickness_limits)
+            .mark_rule(strokeDash=[5, 4])
+            .encode(
+                y=alt.Y(
+                    "두께:Q",
+                    title="Thickness (nm)",
+                ),
+                strokeDash=alt.StrokeDash(
+                    "기준:N",
+                    title="기준",
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "기준:N",
+                        title="기준",
+                    ),
+                    alt.Tooltip(
+                        "두께:Q",
+                        title="두께 (nm)",
+                        format=".1f",
+                    ),
+                ],
+            )
+        )
+
+        thickness_chart = (
+            wafer_points
+            + lot_mean_line
+            + limit_rules
+        ).properties(height=285)
+
+        st.altair_chart(
+            thickness_chart,
+            width="stretch",
+        )
+
+    # -----------------------------------------------------
+    # 오른쪽 위: 공정 변수 변화
+    # -----------------------------------------------------
+    with dashboard_col2:
+        st.markdown(
+            "#### 2. Setpoint 대비 공정 변수 변화"
+        )
+
+        process_deviation = pd.DataFrame({
+            "Lot": summary_df["lot"],
+            "Power (%)": (
+                (
+                    summary_df["mean_power_w"]
+                    - recipe["power_w"]
+                )
+                / recipe["power_w"]
+                * 100
             ),
-            y=alt.Y(
-                "Setpoint 대비 편차 (%):Q",
-                title="Setpoint 대비 편차 (%)",
+            "Ar Flow (%)": (
+                (
+                    summary_df["mean_ar_flow_sccm"]
+                    - recipe["ar_flow_sccm"]
+                )
+                / recipe["ar_flow_sccm"]
+                * 100
             ),
-            color=alt.Color(
-                "공정 변수:N",
-                title="공정 변수",
+            "Pressure (%)": (
+                (
+                    summary_df["mean_pressure_mtorr"]
+                    - recipe["pressure_mtorr"]
+                )
+                / recipe["pressure_mtorr"]
+                * 100
             ),
-            tooltip=[
-                alt.Tooltip(
+        })
+
+        process_long = process_deviation.melt(
+            id_vars="Lot",
+            var_name="공정 변수",
+            value_name="Setpoint 대비 편차 (%)",
+        )
+
+        zero_line = (
+            alt.Chart(pd.DataFrame({"기준": [0]}))
+            .mark_rule(strokeDash=[4, 4])
+            .encode(y="기준:Q")
+        )
+
+        process_chart = (
+            alt.Chart(process_long)
+            .mark_line(point=True, strokeWidth=2.3)
+            .encode(
+                x=alt.X(
                     "Lot:O",
                     title="Lot",
                 ),
-                alt.Tooltip(
+                y=alt.Y(
+                    "Setpoint 대비 편차 (%):Q",
+                    title="Setpoint 대비 편차 (%)",
+                ),
+                color=alt.Color(
                     "공정 변수:N",
                     title="공정 변수",
                 ),
-                alt.Tooltip(
-                    "Setpoint 대비 편차 (%):Q",
-                    title="편차 (%)",
-                    format=".3f",
-                ),
-            ],
+                tooltip=[
+                    alt.Tooltip(
+                        "Lot:O",
+                        title="Lot",
+                    ),
+                    alt.Tooltip(
+                        "공정 변수:N",
+                        title="공정 변수",
+                    ),
+                    alt.Tooltip(
+                        "Setpoint 대비 편차 (%):Q",
+                        title="편차 (%)",
+                        format=".3f",
+                    ),
+                ],
+            )
+            .properties(height=285)
         )
-        .properties(height=300)
+
+        st.altair_chart(
+            process_chart + zero_line,
+            width="stretch",
+        )
+
+    dashboard_col3, dashboard_col4 = st.columns(2)
+
+    # -----------------------------------------------------
+    # 왼쪽 아래: 면저항 추이
+    # -----------------------------------------------------
+    with dashboard_col3:
+        st.markdown("#### 3. 예상 면저항 추이")
+
+        resistance_reference = pd.DataFrame({
+            "기준 면저항": [
+                reference_sheet_resistance(
+                    active_material
+                )
+            ]
+        })
+
+        resistance_line = (
+            alt.Chart(summary_df)
+            .mark_line(point=True, strokeWidth=2.5)
+            .encode(
+                x=alt.X(
+                    "lot:O",
+                    title="Lot",
+                ),
+                y=alt.Y(
+                    "mean_sheet_resistance_ohm_sq:Q",
+                    title="Estimated sheet resistance (Ω/□)",
+                    scale=alt.Scale(zero=False),
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "lot:O",
+                        title="Lot",
+                    ),
+                    alt.Tooltip(
+                        "mean_sheet_resistance_ohm_sq:Q",
+                        title="예상 면저항 (Ω/□)",
+                        format=".4f",
+                    ),
+                ],
+            )
+        )
+
+        resistance_rule = (
+            alt.Chart(resistance_reference)
+            .mark_rule(strokeDash=[5, 4])
+            .encode(
+                y=alt.Y(
+                    "기준 면저항:Q",
+                    title="Estimated sheet resistance (Ω/□)",
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "기준 면저항:Q",
+                        title="100 nm 기준 (Ω/□)",
+                        format=".4f",
+                    )
+                ],
+            )
+        )
+
+        resistance_chart = (
+            resistance_line
+            + resistance_rule
+        ).properties(height=260)
+
+        st.altair_chart(
+            resistance_chart,
+            width="stretch",
+        )
+
+    # -----------------------------------------------------
+    # 오른쪽 아래: Lot 요약
+    # -----------------------------------------------------
+    with dashboard_col4:
+        st.markdown("#### 4. Lot 요약")
+
+        compact_summary = summary_df[
+            [
+                "lot",
+                "mean_thickness_nm",
+                "std_thickness_nm",
+                "mean_uniformity_pct",
+                "mean_sheet_resistance_ohm_sq",
+                "oos_count",
+            ]
+        ].rename(
+            columns={
+                "lot": "Lot",
+                "mean_thickness_nm": "평균 두께 (nm)",
+                "std_thickness_nm": "두께 표준편차",
+                "mean_uniformity_pct": "평균 균일도 (%)",
+                "mean_sheet_resistance_ohm_sq": "예상 면저항 (Ω/□)",
+                "oos_count": "두께 이탈 수",
+            }
+        )
+
+        st.dataframe(
+            compact_summary,
+            hide_index=True,
+            width="stretch",
+            height=300,
+        )
+
+    raw_tab, full_summary_tab = st.tabs(
+        [
+            "Wafer별 Raw Data",
+            "전체 Lot 요약 데이터",
+        ]
     )
 
-    st.altair_chart(
-        process_chart,
-        width="stretch",
-    )
-
-    st.subheader(
-        "3. 예상 면저항 추이"
-    )
-
-    resistance_fig, resistance_ax = plt.subplots(
-        figsize=(8, 3.2)
-    )
-
-    resistance_ax.plot(
-        summary_df["lot"],
-        summary_df[
-            "mean_sheet_resistance_ohm_sq"
-        ],
-        marker="o",
-        linewidth=2,
-        label="Estimated Lot mean",
-    )
-
-    resistance_ax.axhline(
-        reference_sheet_resistance(
-            active_material
-        ),
-        linestyle="--",
-        label="100 nm reference",
-    )
-
-    resistance_ax.set_xlabel("Lot")
-    resistance_ax.set_ylabel(
-        "Estimated sheet resistance (Ω/□)"
-    )
-    resistance_ax.set_xticks(
-        summary_df["lot"]
-    )
-    resistance_ax.grid(alpha=0.25)
-    resistance_ax.legend(fontsize=8)
-    resistance_fig.tight_layout()
-
-    st.pyplot(resistance_fig, width="content")
-
-    st.subheader("4. Lot 요약")
-
-    st.dataframe(
-        summary_df,
-        hide_index=True,
-        use_container_width=True,
-    )
-
-    with st.expander(
-        "5. Wafer별 Raw Data"
-    ):
+    with raw_tab:
         st.dataframe(
             raw_df,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
+            height=360,
         )
 
-    st.download_button(
-        "Raw Data CSV 다운로드",
-        data=csv_bytes(raw_df),
-        file_name=(
-            f"sputter_{active_material}_raw_"
-            f"seed_{st.session_state.case_seed}.csv"
-        ),
-        mime="text/csv",
-    )
+        st.download_button(
+            "Raw Data CSV 다운로드",
+            data=csv_bytes(raw_df),
+            file_name=(
+                f"sputter_{active_material}_raw_"
+                f"seed_{st.session_state.case_seed}.csv"
+            ),
+            mime="text/csv",
+        )
+
+    with full_summary_tab:
+        st.dataframe(
+            summary_df,
+            hide_index=True,
+            width="stretch",
+            height=360,
+        )
 
 st.divider()
-st.subheader("6. 이상 진단")
+st.subheader("5. 이상 진단")
 
 with st.form("diagnosis_form"):
     guess_col1, guess_col2 = st.columns(2)
@@ -1223,7 +1377,7 @@ if st.session_state.last_result:
     )
 
 st.divider()
-st.subheader("7. 누적 진단 이력")
+st.subheader("6. 누적 진단 이력")
 
 if st.session_state.history:
     history_df = pd.DataFrame(
