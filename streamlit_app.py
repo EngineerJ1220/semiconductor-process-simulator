@@ -72,7 +72,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v1.2.1"
+APP_VERSION = "v1.2.2"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -632,6 +632,7 @@ with info_col1:
     with st.expander("업데이트 내역", expanded=False):
         st.markdown(
             """
+            - **v1.2.2**: Lot 증가 시 두께 축 자동 확장, X축 눈금 가로 표시 및 간격 최적화
             - **v1.2.1**: 본문 최대 폭 제한, 중앙 정렬, 넓은 모니터 레이아웃 개선
             - **v1.2.0**: 분석 화면 2열 대시보드 구성, 그래프 크기 축소, Raw Data 분리
             - **v1.1.1**: 공정 변수 그래프 툴팁 명칭 개선, 버전 정보 추가
@@ -875,6 +876,40 @@ metric_col4.metric(
 if not summary_df.empty:
     st.subheader("공정 분석 대시보드")
 
+    lot_min = int(summary_df["lot"].min())
+    lot_max = int(summary_df["lot"].max())
+    lot_count = max(lot_max - lot_min + 1, 1)
+    lot_tick_count = min(lot_count, 10)
+
+    lot_axis = alt.Axis(
+        title="Lot",
+        labelAngle=0,
+        tickCount=lot_tick_count,
+        tickMinStep=1,
+        labelOverlap="greedy",
+    )
+
+    thickness_min = min(
+        float(raw_df["thickness_nm"].min()),
+        LOWER_SPEC,
+    )
+    thickness_max = max(
+        float(raw_df["thickness_nm"].max()),
+        UPPER_SPEC,
+    )
+    thickness_span = max(
+        thickness_max - thickness_min,
+        1.0,
+    )
+    thickness_margin = max(
+        thickness_span * 0.08,
+        0.25,
+    )
+    thickness_domain = [
+        thickness_min - thickness_margin,
+        thickness_max + thickness_margin,
+    ]
+
     dashboard_col1, dashboard_col2 = st.columns(2)
 
     # -----------------------------------------------------
@@ -888,23 +923,28 @@ if not summary_df.empty:
             .mark_circle(size=48, opacity=0.42)
             .encode(
                 x=alt.X(
-                    "lot:O",
-                    title="Lot",
+                    "lot:Q",
+                    axis=lot_axis,
+                    scale=alt.Scale(
+                        domain=[
+                            lot_min - 0.4,
+                            lot_max + 0.4,
+                        ]
+                    ),
                 ),
                 y=alt.Y(
                     "thickness_nm:Q",
                     title="Thickness (nm)",
                     scale=alt.Scale(
-                        domain=[
-                            LOWER_SPEC - 0.3,
-                            UPPER_SPEC + 0.3,
-                        ]
+                        domain=thickness_domain,
+                        nice=True,
                     ),
                 ),
                 tooltip=[
                     alt.Tooltip(
-                        "lot:O",
+                        "lot:Q",
                         title="Lot",
+                        format=".0f",
                     ),
                     alt.Tooltip(
                         "wafer:Q",
@@ -924,17 +964,28 @@ if not summary_df.empty:
             .mark_line(point=True, strokeWidth=2.5)
             .encode(
                 x=alt.X(
-                    "lot:O",
-                    title="Lot",
+                    "lot:Q",
+                    axis=lot_axis,
+                    scale=alt.Scale(
+                        domain=[
+                            lot_min - 0.4,
+                            lot_max + 0.4,
+                        ]
+                    ),
                 ),
                 y=alt.Y(
                     "mean_thickness_nm:Q",
                     title="Thickness (nm)",
+                    scale=alt.Scale(
+                        domain=thickness_domain,
+                        nice=True,
+                    ),
                 ),
                 tooltip=[
                     alt.Tooltip(
-                        "lot:O",
+                        "lot:Q",
                         title="Lot",
+                        format=".0f",
                     ),
                     alt.Tooltip(
                         "mean_thickness_nm:Q",
@@ -1044,8 +1095,14 @@ if not summary_df.empty:
             .mark_line(point=True, strokeWidth=2.3)
             .encode(
                 x=alt.X(
-                    "Lot:O",
-                    title="Lot",
+                    "Lot:Q",
+                    axis=lot_axis,
+                    scale=alt.Scale(
+                        domain=[
+                            lot_min - 0.4,
+                            lot_max + 0.4,
+                        ]
+                    ),
                 ),
                 y=alt.Y(
                     "Setpoint 대비 편차 (%):Q",
@@ -1057,8 +1114,9 @@ if not summary_df.empty:
                 ),
                 tooltip=[
                     alt.Tooltip(
-                        "Lot:O",
+                        "Lot:Q",
                         title="Lot",
+                        format=".0f",
                     ),
                     alt.Tooltip(
                         "공정 변수:N",
@@ -1100,8 +1158,14 @@ if not summary_df.empty:
             .mark_line(point=True, strokeWidth=2.5)
             .encode(
                 x=alt.X(
-                    "lot:O",
-                    title="Lot",
+                    "lot:Q",
+                    axis=lot_axis,
+                    scale=alt.Scale(
+                        domain=[
+                            lot_min - 0.4,
+                            lot_max + 0.4,
+                        ]
+                    ),
                 ),
                 y=alt.Y(
                     "mean_sheet_resistance_ohm_sq:Q",
@@ -1110,8 +1174,9 @@ if not summary_df.empty:
                 ),
                 tooltip=[
                     alt.Tooltip(
-                        "lot:O",
+                        "lot:Q",
                         title="Lot",
+                        format=".0f",
                     ),
                     alt.Tooltip(
                         "mean_sheet_resistance_ohm_sq:Q",
