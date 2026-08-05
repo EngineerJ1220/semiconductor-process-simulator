@@ -80,7 +80,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v2.4.0"
+APP_VERSION = "v2.4.1"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -263,6 +263,40 @@ def has_guaranteed_reference_lots(
     """쉬움·보통에서는 Lot 1~2를 정상 기준으로 보장합니다."""
     return difficulty in REFERENCE_LOT_DIFFICULTIES
 
+FAULT_START_RANGES = {
+    "easy": (3, 5),
+    "normal": (3, 7),
+    "hard": (1, 6),
+    "expert": (1, 8),
+}
+
+
+def choose_fault_start_lot(
+    rng,
+    difficulty,
+):
+    minimum_lot, maximum_lot = FAULT_START_RANGES[difficulty]
+    return int(rng.integers(minimum_lot, maximum_lot + 1))
+
+
+def choose_fault_direction(
+    rng,
+    cause,
+):
+    """원인에 맞는 두께 상승·하락 방향과 내부 부호를 정합니다."""
+    if cause == "target_wear":
+        direction = str(rng.choice(["up", "down"], p=[0.35, 0.65]))
+    else:
+        direction = str(rng.choice(["up", "down"], p=[0.50, 0.50]))
+
+    if cause == "pressure_rise":
+        sign = -1 if direction == "up" else 1
+    else:
+        sign = 1 if direction == "up" else -1
+
+    return direction, sign
+
+
 DIFFICULTY_LABELS = {
     key: value["label"]
     for key, value in DIFFICULTIES.items()
@@ -443,6 +477,15 @@ def build_case_profile(
         else "normal"
     )
 
+    if has_fault:
+        thickness_direction, fault_sign = choose_fault_direction(
+            rng,
+            primary_cause,
+        )
+    else:
+        thickness_direction = "normal"
+        fault_sign = 1
+
     secondary_cause = None
     if (
         has_fault
@@ -490,9 +533,8 @@ def build_case_profile(
             if secondary_cause
             else None
         ),
-        "fault_sign": int(
-            rng.choice([-1, 1])
-        ),
+        "fault_sign": int(fault_sign),
+        "thickness_direction": thickness_direction,
         "severity": severity,
         "secondary_severity": (
             secondary_severity
@@ -790,13 +832,13 @@ def apply_cause_effect(
         else:
             true_power[mask] += (
                 power_setpoint
-                * 0.0080
+                * 0.0120
                 * effective_progress
                 * (0.5 + 0.5 * observable_fraction)
             )
             hidden_rate_effect[mask] -= (
                 base_rate
-                * 0.0020
+                * 0.0008
                 * effective_progress
             )
 
@@ -1562,24 +1604,15 @@ def initialize_case(
 
     rng = st.session_state.rng
 
-    if has_guaranteed_reference_lots(
-        selected_difficulty
-    ):
-        fault_start_lot = int(
-            rng.integers(
-                3,
-                6,
-            )
-        )
-        event_min_lot = 3
-    else:
-        fault_start_lot = int(
-            rng.integers(
-                1,
-                6,
-            )
-        )
-        event_min_lot = 1
+    fault_start_lot = choose_fault_start_lot(
+        rng,
+        selected_difficulty,
+    )
+    event_min_lot = (
+        3
+        if has_guaranteed_reference_lots(selected_difficulty)
+        else 1
+    )
 
     event_max_lot = max(
         fault_start_lot + 8,
@@ -1897,31 +1930,10 @@ def simulate_training_case(
     has_fault = bool(rng.random() >= 0.15)
 
     if has_fault:
-        if has_guaranteed_reference_lots(difficulty):
-            fault_start_lot = int(
-                rng.integers(
-                    3,
-                    max(4, lot_count - 1),
-                )
-            )
-        else:
-            start_mode = str(
-                rng.choice(
-                    ["lot1", "lot2", "later"],
-                    p=[0.24, 0.21, 0.55],
-                )
-            )
-            if start_mode == "lot1":
-                fault_start_lot = 1
-            elif start_mode == "lot2":
-                fault_start_lot = 2
-            else:
-                fault_start_lot = int(
-                    rng.integers(
-                        3,
-                        max(4, lot_count - 1),
-                    )
-                )
+        fault_start_lot = min(
+            choose_fault_start_lot(rng, difficulty),
+            lot_count - 2,
+        )
     else:
         fault_start_lot = None
 
@@ -3511,6 +3523,7 @@ with top_info_col1:
     ):
         st.markdown(
             """
+            - **v2.4.1**: 새 랜덤 문제와 재현 문제 분리, 쉬움·보통 이상 시작 범위 확대, 상승·하락 방향 균형화
             - **v2.4.0**: 이상 발생 버튼 제거, 새 문제 시작 시 이상 조건 자동 설정, 난이도별 초기 Lot 안내 유지, 결과 비교 화면 단순화
             - **v2.3.2**: 쉬움·보통은 Lot 1~2를 정상 기준으로 보장하고, 어려움·전문가는 초기 이상을 허용하도록 문제 규칙과 AI 학습 데이터를 통일
             - **v2.3.1**: 진단 제출 후 실제 발생 조건을 먼저 공개하고, AI 비교는 선택 실행하도록 변경 · AI 설명 생성 오류 수정
@@ -3548,10 +3561,10 @@ with st.container(border=True):
     st.markdown(
         """
         1. **증착 재료와 문제 난이도**를 선택합니다.
-        2. **새 문제 시작**을 누르면 프로그램이 이상 원인과 시작 Lot을 내부에서 자동으로 정합니다.
-        3. **쉬움·보통**에서는 Lot 1과 Lot 2가 정상 기준 Lot으로 자동 생성되고, 이상은 Lot 3 이후부터 나타날 수 있습니다.
+        2. **새 랜덤 문제**를 누르면 재현 번호, 이상 원인, 방향과 시작 Lot을 새로 정합니다. 특정 문제는 **재현 번호로 다시 풀기**로 반복할 수 있습니다.
+        3. **쉬움·보통**에서는 Lot 1과 Lot 2가 정상 기준 Lot으로 자동 생성됩니다. 쉬움은 Lot 3~5, 보통은 Lot 3~7 중 무작위 시점부터 이상이 시작됩니다.
         4. **어려움·전문가**에서는 초기 정상 상태가 보장되지 않으며 Lot 1부터 이상이 포함될 수 있습니다.
-        5. **다음 Lot 생산**을 누르면서 그래프와 표의 변화를 분석합니다.
+        5. **다음 Lot 생산**을 누르면서 정상 유지, 두께 상승 또는 두께 하락 패턴을 분석합니다.
         6. 이상이 처음 나타난 Lot과 원인을 추정하고, 판단 근거와 대응 방안을 작성합니다.
         7. 진단을 제출하면 사용자 답과 실제 발생 조건을 먼저 비교하고, AI 분석은 원할 때만 확인합니다.
         """
@@ -3611,7 +3624,7 @@ if (
 ):
     st.warning(
         "선택한 재료와 난이도를 적용하려면 "
-        "아래의 '새 문제 시작'을 눌러주세요."
+        "아래의 '새 랜덤 문제' 또는 '재현 번호로 다시 풀기'를 눌러주세요."
     )
 
 active_material = (
@@ -3733,7 +3746,8 @@ if has_guaranteed_reference_lots(
 ):
     st.info(
         "초기 Lot 안내: Lot 1과 Lot 2는 정상 상태의 기준 Lot입니다. "
-        "이상은 Lot 3 이후부터 나타날 수 있습니다."
+        "쉬움은 Lot 3~5, 보통은 Lot 3~7 중 무작위 시점부터 이상이 시작됩니다. "
+        "따라서 Lot 3이 정상일 수도 있습니다."
     )
 else:
     st.warning(
@@ -3746,40 +3760,78 @@ else:
 # =========================================================
 st.subheader("3. 공정 가동")
 
+if "seed_input" not in st.session_state:
+    st.session_state.seed_input = int(st.session_state.case_seed)
+
 seed_input = st.number_input(
     "문제 재현 번호",
     min_value=1,
     max_value=999_999_999,
-    value=int(
-        st.session_state.case_seed
-    ),
     step=1,
+    key="seed_input",
     help=(
-        "같은 재료, 난이도, 재현 번호와 버튼 순서를 사용하면 "
-        "동일한 문제를 다시 만들 수 있습니다."
+        "특정 문제를 다시 확인할 때 사용합니다. "
+        "새 랜덤 문제 버튼은 이 번호를 자동으로 바꿉니다."
     ),
 )
 
-button_col1, button_col2 = (
-    st.columns(2)
-)
+st.caption(f"현재 문제 재현 번호: {st.session_state.case_seed}")
+
+def start_random_problem(
+    material,
+    difficulty,
+):
+    new_seed = random.SystemRandom().randint(
+        1,
+        999_999_999,
+    )
+    st.session_state.seed_input = new_seed
+    initialize_case(
+        material=material,
+        difficulty=difficulty,
+        seed=new_seed,
+    )
+
+
+def replay_problem(
+    material,
+    difficulty,
+):
+    initialize_case(
+        material=material,
+        difficulty=difficulty,
+        seed=int(st.session_state.seed_input),
+    )
+
+
+button_col1, button_col2, button_col3 = st.columns(3)
 
 with button_col1:
-    if st.button(
-        "새 문제 시작",
+    st.button(
+        "새 랜덤 문제",
+        type="primary",
         width="stretch",
-    ):
-        initialize_case(
-            material=selected_material,
-            difficulty=selected_difficulty,
-            seed=int(seed_input),
-        )
-        st.rerun()
+        on_click=start_random_problem,
+        args=(
+            selected_material,
+            selected_difficulty,
+        ),
+    )
 
 with button_col2:
+    st.button(
+        "재현 번호로 다시 풀기",
+        width="stretch",
+        on_click=replay_problem,
+        args=(
+            selected_material,
+            selected_difficulty,
+        ),
+    )
+
+with button_col3:
     if st.button(
         "다음 Lot 생산",
-        type="primary",
         width="stretch",
     ):
         new_lot = produce_lot()
@@ -3816,7 +3868,8 @@ if has_guaranteed_reference_lots(
 ):
     st.info(
         "Lot 1과 Lot 2는 정상 기준 Lot으로 이미 생성되어 있습니다. "
-        "이상은 Lot 3 이후부터 나타날 수 있지만 정확한 시작 시점과 원인은 공개되지 않습니다."
+        "Lot 3 이후에도 정상 Lot이 이어질 수 있으며, 이상이 시작되면 두께는 원인에 따라 상승하거나 하락할 수 있습니다. "
+        "정확한 시작 시점과 원인은 공개되지 않습니다."
     )
 else:
     st.warning(
