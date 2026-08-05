@@ -191,7 +191,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v2.4.3"
+APP_VERSION = "v2.4.4"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -3670,6 +3670,7 @@ with top_info_col1:
     ):
         st.markdown(
             """
+            - **v2.4.4**: 결과 화면을 내 답과 실제 정답 중심으로 재구성, 중복 오답 카드 제거, 규칙 기반 탐지와 AI를 보조 분석 영역으로 통합
             - **v2.4.3**: 진단 서술형 답변의 최소 글자 수 제한 제거, 짧은 예시 문구와 입력창 높이 조정
             - **v2.4.2**: 모바일 현황판 2×2 압축, 데이터 분석 영역에 Lot 생산 버튼 추가, 문제 번호와 표 명칭·열 이름 한글화
             - **v2.4.1**: 새 문제와 동일 문제 다시 시작 기능 분리, 쉬움·보통 이상 시작 범위 확대, 상승·하락 방향 균형화
@@ -4906,52 +4907,80 @@ if submit_diagnosis:
 # =========================================================
 # 6. 진단 결과 비교
 # =========================================================
-st.subheader("6. 진단 결과 비교")
+st.subheader("6. 진단 결과")
 
 if (
     st.session_state.last_result
     is None
 ):
     st.info(
-        "사용자 진단을 제출하면 사용자 판단과 실제 발생 조건이 "
-        "이곳에 먼저 표시됩니다. AI 분석은 그다음에 선택해서 확인할 수 있습니다."
+        "진단을 제출하면 내가 선택한 답과 실제 정답을 "
+        "항목별로 바로 비교할 수 있습니다."
     )
 else:
     result = (
         st.session_state.last_result
     )
 
+    def compare_lot_prediction(
+        predicted_lot,
+        actual_lot,
+    ):
+        if predicted_lot is None:
+            return "탐지하지 못함"
+
+        gap = (
+            int(predicted_lot)
+            - int(actual_lot)
+        )
+
+        if gap == 0:
+            return "일치"
+        if gap > 0:
+            return (
+                f"{gap}개 Lot 늦음"
+            )
+        return (
+            f"{abs(gap)}개 Lot 빠름"
+        )
+
+    st.markdown(
+        "### 내 답과 실제 정답"
+    )
+    st.caption(
+        "실제 정답은 프로그램이 문제를 만들 때 정한 "
+        "발생 조건 하나입니다."
+    )
+
     comparison_rows = [
         {
             "항목": "이상 시작 Lot",
-            "사용자 판단": (
+            "내가 제출한 답": (
                 f"Lot {result['guessed_fault_lot']}"
             ),
-            "실제 발생 조건": (
+            "실제 정답": (
                 f"Lot {result['actual_fault_lot']}"
             ),
-            "결과": (
-                "일치"
-                if result["lot_correct"]
-                else (
-                    f"{abs(result['guessed_fault_lot'] - result['actual_fault_lot'])}개 Lot "
-                    + (
-                        "늦게 판단"
-                        if result["guessed_fault_lot"] > result["actual_fault_lot"]
-                        else "빠르게 판단"
-                    )
+            "판정": (
+                compare_lot_prediction(
+                    result[
+                        "guessed_fault_lot"
+                    ],
+                    result[
+                        "actual_fault_lot"
+                    ],
                 )
             ),
         },
         {
             "항목": "주요 원인",
-            "사용자 판단": (
+            "내가 제출한 답": (
                 result["guessed_cause"]
             ),
-            "실제 발생 조건": (
+            "실제 정답": (
                 result["actual_cause"]
             ),
-            "결과": (
+            "판정": (
                 "일치"
                 if result["cause_correct"]
                 else "불일치"
@@ -4959,15 +4988,21 @@ else:
         },
         {
             "항목": "추가 원인",
-            "사용자 판단": (
-                result["guessed_secondary_cause"]
+            "내가 제출한 답": (
+                result[
+                    "guessed_secondary_cause"
+                ]
             ),
-            "실제 발생 조건": (
-                result["actual_secondary_cause"]
+            "실제 정답": (
+                result[
+                    "actual_secondary_cause"
+                ]
             ),
-            "결과": (
+            "판정": (
                 "일치"
-                if result["secondary_correct"]
+                if result[
+                    "secondary_correct"
+                ]
                 else "불일치"
             ),
         },
@@ -4977,552 +5012,551 @@ else:
         comparison_rows
     )
 
-    st.markdown("#### 사용자 진단과 실제 발생 조건")
     st.dataframe(
         comparison_df,
         hide_index=True,
         width="stretch",
+        column_config={
+            "항목": st.column_config.TextColumn(
+                "항목",
+                width="small",
+            ),
+            "내가 제출한 답": st.column_config.TextColumn(
+                "내가 제출한 답",
+                width="medium",
+            ),
+            "실제 정답": st.column_config.TextColumn(
+                "실제 정답",
+                width="medium",
+            ),
+            "판정": st.column_config.TextColumn(
+                "판정",
+                width="small",
+            ),
+        },
     )
 
-    if result["auto_detected_lot"] is None:
-        st.info(
-            "통계 기준은 이상 시작 시점을 찾지 못했습니다."
+    correct_count = sum([
+        bool(result["lot_correct"]),
+        bool(result["cause_correct"]),
+        bool(result["secondary_correct"]),
+    ])
+
+    if correct_count == 3:
+        st.success(
+            "3개 항목이 모두 실제 정답과 일치합니다."
         )
     else:
-        statistical_gap = (
-            int(result["auto_detected_lot"])
-            - int(result["actual_fault_lot"])
+        st.warning(
+            f"3개 항목 중 {correct_count}개가 실제 정답과 일치합니다."
         )
 
-        if statistical_gap == 0:
-            statistical_message = (
-                f"통계 기준도 실제와 같은 Lot {result['actual_fault_lot']}을 "
-                "처음 이상으로 판단했습니다."
-            )
-        elif statistical_gap > 0:
-            statistical_message = (
-                f"통계 기준은 Lot {result['auto_detected_lot']}을 처음 이상으로 판단했습니다. "
-                f"실제 시작 시점보다 {statistical_gap}개 Lot 늦었습니다."
-            )
-        else:
-            statistical_message = (
-                f"통계 기준은 Lot {result['auto_detected_lot']}을 처음 이상으로 판단했습니다. "
-                f"실제 시작 시점보다 {abs(statistical_gap)}개 Lot 빨랐습니다."
-            )
-
-        st.info(
-            "통계 기준 탐지 결과: "
-            + statistical_message
-        )
-
-    answer_col1, answer_col2, answer_col3 = (
-        st.columns(3)
-    )
-
-    answer_col1.metric(
-        "이상 시작 Lot",
-        (
-            "정답"
-            if result[
-                "lot_correct"
-            ]
-            else "오답"
-        ),
-        (
-            f"사용자 Lot {result['guessed_fault_lot']} · "
-            f"실제 Lot {result['actual_fault_lot']}"
-        ),
-    )
-
-    answer_col2.metric(
-        "주요 원인",
-        (
-            "정답"
-            if result[
-                "cause_correct"
-            ]
-            else "오답"
-        ),
-        result[
-            "actual_cause"
-        ],
-    )
-
-    answer_col3.metric(
-        "추가 원인",
-        (
-            "정답"
-            if result[
-                "secondary_correct"
-            ]
-            else "오답"
-        ),
-        result[
-            "actual_secondary_cause"
-        ],
-    )
-
-    answer_detail_col1, answer_detail_col2 = (
-        st.columns(2)
-    )
-
-    with answer_detail_col1:
+    with st.expander(
+        "내가 작성한 진단 내용 보기",
+        expanded=False,
+    ):
         st.markdown(
-            "#### 실제 발생 조건"
+            f"- **판단 근거:** "
+            f"{result['evidence']}"
+        )
+        st.markdown(
+            f"- **추가 확인 항목:** "
+            f"{result['additional_check']}"
+        )
+        st.markdown(
+            f"- **대응 방안:** "
+            f"{result['corrective_action']}"
         )
 
-        actual_explanations = [
-            CAUSE_EXPLANATIONS[
-                next(
-                    key
-                    for key, value
-                    in CAUSES.items()
-                    if value
-                    == result[
-                        "actual_cause"
-                    ]
-                )
-            ]
-        ]
-
-        if (
-            result[
-                "actual_secondary_cause"
-            ]
-            != "없음"
-        ):
-            secondary_key = next(
+    actual_explanations = [
+        CAUSE_EXPLANATIONS[
+            next(
                 key
                 for key, value
                 in CAUSES.items()
                 if value
                 == result[
-                    "actual_secondary_cause"
+                    "actual_cause"
                 ]
             )
-            actual_explanations.append(
-                CAUSE_EXPLANATIONS[
-                    secondary_key
-                ]
-            )
+        ]
+    ]
 
-        st.markdown(
-            f"- 이상 시작 시점: "
-            f"**Lot {result['actual_fault_lot']}**"
+    if (
+        result[
+            "actual_secondary_cause"
+        ]
+        != "없음"
+    ):
+        secondary_key = next(
+            key
+            for key, value
+            in CAUSES.items()
+            if value
+            == result[
+                "actual_secondary_cause"
+            ]
         )
-        st.markdown(
-            f"- 주요 원인: "
-            f"**{result['actual_cause']}**"
-        )
-        st.markdown(
-            f"- 추가 원인: "
-            f"**{result['actual_secondary_cause']}**"
+        actual_explanations.append(
+            CAUSE_EXPLANATIONS[
+                secondary_key
+            ]
         )
 
-        st.markdown(
-            "##### 실제 데이터 변화"
-        )
-        for explanation in actual_explanations:
+    with st.expander(
+        "정답 해설 보기",
+        expanded=False,
+    ):
+        for explanation in (
+            actual_explanations
+        ):
             st.markdown(
                 f"- {explanation}"
             )
 
-    with answer_detail_col2:
-        st.markdown(
-            "#### 사용자가 작성한 내용"
-        )
-        st.markdown(
-            f"- 판단 근거: {result['evidence']}"
-        )
-        st.markdown(
-            f"- 추가 확인 항목: {result['additional_check']}"
-        )
-        st.markdown(
-            f"- 대응 방안: {result['corrective_action']}"
-        )
+    st.info(
+        "규칙 기반 탐지와 AI 분석은 정답이 아닙니다. "
+        "위의 실제 정답을 서로 다른 방식으로 추정하는 보조 분석입니다."
+    )
 
-    if not result.get(
-        "ai_ready",
-        False,
+    with st.expander(
+        "자동 분석 결과 비교 보기",
+        expanded=result.get(
+            "ai_ready",
+            False,
+        ),
     ):
-        st.divider()
-        st.markdown(
-            "#### AI 분석 결과도 확인할까요?"
-        )
         st.caption(
-            "선택사항입니다. 버튼을 누르면 AI가 사용자가 진단할 때까지 "
-            "생성된 동일한 데이터를 별도로 분석합니다. "
-            "처음 실행할 때는 모델 준비에 시간이 걸릴 수 있습니다."
+            "규칙 기반 탐지는 사람이 정한 기준으로 이상 시점만 찾습니다. "
+            "AI는 여러 공정 변수의 패턴을 학습해 이상 시점과 원인을 추정합니다."
         )
 
-        if st.button(
-            "AI 분석 결과 확인",
-            type="primary",
-            width="stretch",
-            key=(
-                "run_ai_"
-                f"{result['timestamp']}_"
-                f"{result['case_seed']}"
-            ),
-        ):
-            if (
-                st.session_state.ai_bundle
-                is None
-            ):
-                with st.spinner(
-                    "AI 학습용 데이터를 만들고 모델을 준비하고 있습니다..."
-                ):
-                    st.session_state.ai_bundle = (
-                        train_ai_model(
-                            DEFAULT_AI_CASE_COUNT,
-                            DEFAULT_AI_DATASET_SEED,
-                            DEFAULT_AI_TRAINING_SCOPE,
-                        )
-                    )
+        rule_lot = result.get(
+            "auto_detected_lot"
+        )
 
-            diagnosis_summary = result.get(
-                "summary_snapshot"
-            )
-
-            if (
-                diagnosis_summary is None
-                or diagnosis_summary.empty
-            ):
-                st.error(
-                    "진단 당시의 데이터를 불러오지 못했습니다. "
-                    "새 문제에서 다시 진단해주세요."
-                )
-            else:
-                with st.spinner(
-                    "AI가 동일한 공정 데이터를 분석하고 있습니다..."
-                ):
-                    ai_diagnosis = (
-                        ai_diagnose_current_case(
-                            st.session_state.ai_bundle,
-                            diagnosis_summary,
-                            result[
-                                "material_key"
-                            ],
-                            result[
-                                "difficulty_key"
-                            ],
-                        )
-                    )
-
-                ai_fault_lot = (
-                    ai_diagnosis[
-                        "fault_lot"
-                    ]
-                    if ai_diagnosis
-                    is not None
-                    else None
-                )
-                ai_cause = (
-                    ai_diagnosis[
-                        "cause_label"
-                    ]
-                    if ai_diagnosis
-                    is not None
-                    else "AI가 분석 결과를 만들지 못함"
-                )
-
-                updated_result = (
-                    result.copy()
-                )
-                updated_result.update({
-                    "ai_ready": True,
-                    "ai_fault_lot": (
-                        ai_fault_lot
-                    ),
-                    "ai_cause": (
-                        ai_cause
-                    ),
-                    "ai_lot_correct": (
-                        ai_fault_lot
-                        == result[
+        automatic_rows = [
+            {
+                "분석 방법": "규칙 기반 탐지",
+                "탐지한 이상 시작 Lot": (
+                    f"Lot {rule_lot}"
+                    if rule_lot is not None
+                    else "찾지 못함"
+                ),
+                "추정 원인": "원인 판단 안 함",
+                "실제 정답과 비교": (
+                    compare_lot_prediction(
+                        rule_lot,
+                        result[
                             "actual_fault_lot"
-                        ]
-                    ),
-                    "ai_cause_correct": (
-                        ai_cause
-                        == result[
-                            "actual_cause"
-                        ]
-                    ),
-                    "ai_confidence": (
-                        ai_diagnosis[
-                            "confidence"
-                        ]
-                        if ai_diagnosis
-                        is not None
-                        else None
-                    ),
-                    "ai_confidence_label": (
-                        ai_diagnosis[
-                            "confidence_label"
-                        ]
-                        if ai_diagnosis
-                        is not None
-                        else "미확인"
-                    ),
-                    "ai_top_causes": (
-                        ai_diagnosis[
-                            "top_causes"
-                        ]
-                        if ai_diagnosis
-                        is not None
-                        else []
-                    ),
-                    "ai_composite_possible": (
-                        ai_diagnosis[
-                            "composite_possible"
-                        ]
-                        if ai_diagnosis
-                        is not None
-                        else False
-                    ),
-                    "ai_abstained": (
-                        ai_diagnosis.get(
-                            "abstained",
-                            False,
-                        )
-                        if ai_diagnosis
-                        is not None
-                        else True
-                    ),
-                    "ai_prediction_table": (
-                        ai_diagnosis[
-                            "prediction_table"
-                        ]
-                        if ai_diagnosis
-                        is not None
-                        else None
-                    ),
-                    "ai_signal_summary": (
-                        build_ai_signal_summary(
-                            summary=diagnosis_summary,
-                            material=result[
-                                "material_key"
-                            ],
-                            detected_lot=(
-                                ai_fault_lot
-                            ),
-                        )
-                    ),
-                })
-
-                st.session_state.last_result = (
-                    updated_result
-                )
-
-                for history_index in range(
-                    len(
-                        st.session_state.history
+                        ],
                     )
-                    - 1,
-                    -1,
-                    -1,
-                ):
-                    history_record = (
-                        st.session_state.history[
-                            history_index
-                        ]
-                    )
-                    if (
-                        history_record.get(
-                            "timestamp"
-                        )
-                        == result[
-                            "timestamp"
-                        ]
-                        and history_record.get(
-                            "case_seed"
-                        )
-                        == result[
-                            "case_seed"
-                        ]
-                    ):
-                        st.session_state.history[
-                            history_index
-                        ] = updated_result
-                        break
-
-                st.rerun()
-
-    else:
-        st.divider()
-        st.markdown(
-            "#### AI 분석 결과"
-        )
-
-        ai_top_causes = result.get(
-            "ai_top_causes",
-            [],
-        )
+                ),
+            }
+        ]
 
         if result.get(
-            "ai_abstained",
+            "ai_ready",
             False,
         ):
-            st.warning(
-                "AI가 이상 가능성은 감지했지만 원인을 하나로 특정할 만큼 "
-                "확신하지 못했습니다. 아래 확률은 참고 후보입니다."
+            ai_lot_comparison = (
+                compare_lot_prediction(
+                    result.get(
+                        "ai_fault_lot"
+                    ),
+                    result[
+                        "actual_fault_lot"
+                    ],
+                )
             )
-
-        ai_result_col1, ai_result_col2, ai_result_col3 = (
-            st.columns(3)
-        )
-
-        ai_result_col1.metric(
-            "AI가 본 이상 시작 Lot",
-            (
-                f"Lot {result['ai_fault_lot']}"
-                if result[
-                    "ai_fault_lot"
-                ]
-                is not None
-                else "특정하지 못함"
-            ),
-            (
-                "실제와 일치"
-                if result[
-                    "ai_lot_correct"
-                ]
-                else (
-                    f"실제 Lot "
-                    f"{result['actual_fault_lot']}"
-                )
-            ),
-        )
-
-        ai_result_col2.metric(
-            "AI가 추정한 원인",
-            (
-                result[
-                    "ai_cause"
-                ]
-                or "특정하지 못함"
-            ),
-            (
-                "실제와 일치"
-                if result[
-                    "ai_cause_correct"
-                ]
-                else result[
-                    "actual_cause"
-                ]
-            ),
-        )
-
-        ai_result_col3.metric(
-            "AI 예측 신뢰도",
-            (
-                result.get(
-                    "ai_confidence_label"
-                )
-                or "미확인"
-            ),
-            (
-                f"{result['ai_confidence'] * 100:.1f}%"
+            ai_cause_comparison = (
+                "원인 일치"
                 if result.get(
-                    "ai_confidence"
+                    "ai_cause_correct",
+                    False,
                 )
-                is not None
-                else None
-            ),
-        )
-
-        ai_detail_col1, ai_detail_col2 = (
-            st.columns(2)
-        )
-
-        with ai_detail_col1:
-            st.markdown(
-                "##### AI가 추정한 원인"
+                else "원인 불일치"
             )
 
-            if ai_top_causes:
-                for rank, cause in enumerate(
-                    ai_top_causes,
-                    start=1,
-                ):
-                    st.markdown(
-                        f"{rank}. **{cause['cause_label']}** "
-                        f"({cause['probability'] * 100:.1f}%)"
+            automatic_rows.append({
+                "분석 방법": "AI 분석",
+                "탐지한 이상 시작 Lot": (
+                    f"Lot {result['ai_fault_lot']}"
+                    if result.get(
+                        "ai_fault_lot"
                     )
-            else:
-                st.markdown(
-                    "- 원인을 특정하지 못했습니다."
+                    is not None
+                    else "찾지 못함"
+                ),
+                "추정 원인": (
+                    result.get(
+                        "ai_cause"
+                    )
+                    or "특정하지 못함"
+                ),
+                "실제 정답과 비교": (
+                    f"{ai_lot_comparison} · "
+                    f"{ai_cause_comparison}"
+                ),
+            })
+        else:
+            automatic_rows.append({
+                "분석 방법": "AI 분석",
+                "탐지한 이상 시작 Lot": "분석 전",
+                "추정 원인": "분석 전",
+                "실제 정답과 비교": "분석 전",
+            })
+
+        st.dataframe(
+            pd.DataFrame(
+                automatic_rows
+            ),
+            hide_index=True,
+            width="stretch",
+        )
+
+        if not result.get(
+            "ai_ready",
+            False,
+        ):
+            st.caption(
+                "AI 분석은 선택사항입니다. 처음 실행할 때는 "
+                "학습용 데이터와 모델을 준비하느라 시간이 걸릴 수 있습니다."
+            )
+
+            if st.button(
+                "AI 분석 실행",
+                type="primary",
+                width="stretch",
+                key=(
+                    "run_ai_"
+                    f"{result['timestamp']}_"
+                    f"{result['case_seed']}"
+                ),
+            ):
+                if (
+                    st.session_state.ai_bundle
+                    is None
+                ):
+                    with st.spinner(
+                        "AI 학습용 데이터를 만들고 모델을 준비하고 있습니다..."
+                    ):
+                        st.session_state.ai_bundle = (
+                            train_ai_model(
+                                DEFAULT_AI_CASE_COUNT,
+                                DEFAULT_AI_DATASET_SEED,
+                                DEFAULT_AI_TRAINING_SCOPE,
+                            )
+                        )
+
+                diagnosis_summary = (
+                    result.get(
+                        "summary_snapshot"
+                    )
                 )
+
+                if (
+                    diagnosis_summary is None
+                    or diagnosis_summary.empty
+                ):
+                    st.error(
+                        "진단 당시의 데이터를 불러오지 못했습니다. "
+                        "새 문제에서 다시 진단해주세요."
+                    )
+                else:
+                    with st.spinner(
+                        "AI가 동일한 공정 데이터를 분석하고 있습니다..."
+                    ):
+                        ai_diagnosis = (
+                            ai_diagnose_current_case(
+                                st.session_state.ai_bundle,
+                                diagnosis_summary,
+                                result[
+                                    "material_key"
+                                ],
+                                result[
+                                    "difficulty_key"
+                                ],
+                            )
+                        )
+
+                    ai_fault_lot = (
+                        ai_diagnosis[
+                            "fault_lot"
+                        ]
+                        if ai_diagnosis
+                        is not None
+                        else None
+                    )
+                    ai_cause = (
+                        ai_diagnosis[
+                            "cause_label"
+                        ]
+                        if ai_diagnosis
+                        is not None
+                        else "AI가 분석 결과를 만들지 못함"
+                    )
+
+                    updated_result = (
+                        result.copy()
+                    )
+                    updated_result.update({
+                        "ai_ready": True,
+                        "ai_fault_lot": (
+                            ai_fault_lot
+                        ),
+                        "ai_cause": (
+                            ai_cause
+                        ),
+                        "ai_lot_correct": (
+                            ai_fault_lot
+                            == result[
+                                "actual_fault_lot"
+                            ]
+                        ),
+                        "ai_cause_correct": (
+                            ai_cause
+                            == result[
+                                "actual_cause"
+                            ]
+                        ),
+                        "ai_confidence": (
+                            ai_diagnosis[
+                                "confidence"
+                            ]
+                            if ai_diagnosis
+                            is not None
+                            else None
+                        ),
+                        "ai_confidence_label": (
+                            ai_diagnosis[
+                                "confidence_label"
+                            ]
+                            if ai_diagnosis
+                            is not None
+                            else "미확인"
+                        ),
+                        "ai_top_causes": (
+                            ai_diagnosis[
+                                "top_causes"
+                            ]
+                            if ai_diagnosis
+                            is not None
+                            else []
+                        ),
+                        "ai_composite_possible": (
+                            ai_diagnosis[
+                                "composite_possible"
+                            ]
+                            if ai_diagnosis
+                            is not None
+                            else False
+                        ),
+                        "ai_abstained": (
+                            ai_diagnosis.get(
+                                "abstained",
+                                False,
+                            )
+                            if ai_diagnosis
+                            is not None
+                            else True
+                        ),
+                        "ai_prediction_table": (
+                            ai_diagnosis[
+                                "prediction_table"
+                            ]
+                            if ai_diagnosis
+                            is not None
+                            else None
+                        ),
+                        "ai_signal_summary": (
+                            build_ai_signal_summary(
+                                summary=(
+                                    diagnosis_summary
+                                ),
+                                material=result[
+                                    "material_key"
+                                ],
+                                detected_lot=(
+                                    ai_fault_lot
+                                ),
+                            )
+                        ),
+                    })
+
+                    st.session_state.last_result = (
+                        updated_result
+                    )
+
+                    for history_index in range(
+                        len(
+                            st.session_state.history
+                        )
+                        - 1,
+                        -1,
+                        -1,
+                    ):
+                        history_record = (
+                            st.session_state.history[
+                                history_index
+                            ]
+                        )
+                        if (
+                            history_record.get(
+                                "timestamp"
+                            )
+                            == result[
+                                "timestamp"
+                            ]
+                            and history_record.get(
+                                "case_seed"
+                            )
+                            == result[
+                                "case_seed"
+                            ]
+                        ):
+                            st.session_state.history[
+                                history_index
+                            ] = updated_result
+                            break
+
+                    st.rerun()
+
+        else:
+            ai_confidence = result.get(
+                "ai_confidence"
+            )
+            ai_confidence_text = (
+                f"{ai_confidence * 100:.1f}%"
+                if ai_confidence
+                is not None
+                else "확인할 수 없음"
+            )
+
+            st.markdown(
+                "#### AI 세부 분석"
+            )
+            st.markdown(
+                f"- **예측 신뢰도:** "
+                f"{result.get('ai_confidence_label', '미확인')} "
+                f"({ai_confidence_text})"
+            )
 
             if result.get(
-                "ai_composite_possible",
+                "ai_abstained",
                 False,
             ):
-                st.info(
-                    "두 원인의 확률이 비슷해 복합 이상 가능성이 있습니다."
+                st.warning(
+                    "AI가 이상 가능성은 감지했지만 원인을 하나로 "
+                    "특정할 만큼 확신하지 못했습니다."
                 )
 
-        with ai_detail_col2:
-            st.markdown(
-                "##### AI 예측과 함께 확인된 주요 변화"
+            ai_detail_col1, ai_detail_col2 = (
+                st.columns(2)
             )
 
-            if result.get(
-                "ai_signal_summary"
-            ):
-                for index, signal in enumerate(
-                    result[
-                        "ai_signal_summary"
-                    ],
-                    start=1,
-                ):
-                    st.markdown(
-                        f"{index}. {signal}"
-                    )
-            else:
+            with ai_detail_col1:
                 st.markdown(
-                    "- 뚜렷한 단일 변화 신호를 정리하지 못했습니다."
+                    "##### AI의 원인 후보"
                 )
 
-        with st.expander(
-            "Lot별 AI 예측 결과 보기",
-            expanded=False,
-        ):
-            ai_prediction_table = (
-                result[
-                    "ai_prediction_table"
-                ].copy()
-                if result[
-                    "ai_prediction_table"
-                ]
-                is not None
-                else pd.DataFrame()
+                ai_top_causes = (
+                    result.get(
+                        "ai_top_causes",
+                        [],
+                    )
+                )
+
+                if ai_top_causes:
+                    for rank, cause in enumerate(
+                        ai_top_causes,
+                        start=1,
+                    ):
+                        st.markdown(
+                            f"{rank}. **{cause['cause_label']}** "
+                            f"({cause['probability'] * 100:.1f}%)"
+                        )
+                else:
+                    st.markdown(
+                        "- 원인을 특정하지 못했습니다."
+                    )
+
+                if result.get(
+                    "ai_composite_possible",
+                    False,
+                ):
+                    st.info(
+                        "두 원인의 확률이 비슷해 복합 이상 가능성이 있습니다."
+                    )
+
+            with ai_detail_col2:
+                st.markdown(
+                    "##### AI가 확인한 주요 변화"
+                )
+
+                if result.get(
+                    "ai_signal_summary"
+                ):
+                    for index, signal in enumerate(
+                        result[
+                            "ai_signal_summary"
+                        ],
+                        start=1,
+                    ):
+                        st.markdown(
+                            f"{index}. {signal}"
+                        )
+                else:
+                    st.markdown(
+                        "- 뚜렷한 단일 변화 신호를 정리하지 못했습니다."
+                    )
+
+            show_lot_predictions = st.toggle(
+                "Lot별 AI 예측 결과 보기",
+                value=False,
+                key=(
+                    "show_ai_lot_predictions_"
+                    f"{result['timestamp']}_"
+                    f"{result['case_seed']}"
+                ),
             )
 
-            for probability_column in [
-                "이상 확률",
-                "1순위 확률",
-                "2순위 확률",
-            ]:
-                if (
-                    probability_column
-                    in ai_prediction_table.columns
-                ):
-                    ai_prediction_table[
+            if show_lot_predictions:
+                ai_prediction_table = (
+                    result[
+                        "ai_prediction_table"
+                    ].copy()
+                    if result[
+                        "ai_prediction_table"
+                    ]
+                    is not None
+                    else pd.DataFrame()
+                )
+
+                for probability_column in [
+                    "이상 확률",
+                    "1순위 확률",
+                    "2순위 확률",
+                ]:
+                    if (
                         probability_column
-                    ] = (
+                        in ai_prediction_table.columns
+                    ):
                         ai_prediction_table[
                             probability_column
-                        ]
-                        * 100
-                    ).round(1)
+                        ] = (
+                            ai_prediction_table[
+                                probability_column
+                            ]
+                            * 100
+                        ).round(1)
 
-            st.dataframe(
-                ai_prediction_table,
-                hide_index=True,
-                width="stretch",
-            )
+                st.dataframe(
+                    ai_prediction_table,
+                    hide_index=True,
+                    width="stretch",
+                )
+
 
 # =========================================================
 # 7. 누적 진단 기록
@@ -5662,7 +5696,7 @@ with st.expander(
         1. 실제 반도체 생산 데이터는 개인 프로젝트에서 확보하기 어렵기 때문에 스퍼터 공정의 관계를 단순화한 합성 데이터를 설계했습니다.
         2. 전원 출력, Ar 유량, 챔버 압력과 타겟 상태 변화가 증착률, 두께, 균일도와 예상 면저항에 영향을 주도록 계산 규칙을 만들었습니다.
         3. 사용자는 생성된 Lot 데이터를 보고 이상 시작 시점과 원인을 직접 진단합니다.
-        4. 통계 기준은 사람이 정한 관리 범위와 변화 기준으로 이상 시점만 탐지합니다.
+        4. 규칙 기반 탐지는 사람이 정한 관리 범위와 변화 기준으로 이상 시점만 찾습니다.
         5. AI는 랜덤 포레스트 분류 모델로 정상과 네 가지 이상 원인을 학습하고, 사용자의 진단과 별도로 원인을 예측합니다.
         6. 난이도 정보는 실제 공정에서 얻을 수 없는 힌트이므로 AI 입력 변수에서 제외하고 평가 구분에만 사용합니다.
         7. 최종 목적은 높은 정확도 자체가 아니라 초기 이상, 미지 원인과 유사한 공정 신호에서 AI가 언제 왜 틀리는지 확인하는 것입니다.
@@ -5681,7 +5715,7 @@ with st.expander(
         - 쉬움·보통 학습 문제에서는 Lot 1~2가 정상 기준으로 제공되고, 어려움·전문가에서는 초기 이상도 포함됩니다.
         - 문제 난이도 정보 자체는 AI 입력 변수로 사용하지 않습니다.
         - 사용자가 진단을 제출하기 전에는 AI 결과를 표시하지 않습니다.
-        - 진단 제출 후 사용자 판단, AI 판단, 통계 기준과 실제 발생 조건을 함께 비교합니다.
+        - 진단 제출 후 내 답과 실제 정답을 먼저 비교하고, 규칙 기반 탐지와 AI는 보조 분석으로 확인합니다.
         - AI가 표시하는 주요 변화는 예측 시점의 두께, 공정 변수, 증착률, 균일도와 예상 면저항 변화입니다.
         - 첫 Lot부터 이상인 문제와 학습에 없던 원인을 별도 평가해 모델이 언제 틀리거나 판단을 유보하는지 확인합니다.
         - AI 성능은 합성 데이터에 대한 평가 결과이며 실제 생산 라인의 진단 성능을 의미하지 않습니다.
