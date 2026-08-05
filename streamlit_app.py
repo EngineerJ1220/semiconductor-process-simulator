@@ -80,7 +80,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v2.2.0"
+APP_VERSION = "v2.3.0"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -141,30 +141,40 @@ MATERIALS = {
 THIN_FILM_RESISTIVITY_FACTOR = 1.25
 
 CAUSES = {
-    "power_drift": "전원 공급계통 출력 드리프트",
+    "power_drift": "전원 출력 제어 이상",
     "flow_drop": "Ar 유량 제어 이상",
     "pressure_rise": "챔버 압력 제어 이상",
-    "target_wear": "타겟 국부 소모",
+    "target_wear": "타겟 상태 변화",
 }
 
 CAUSE_EXPLANATIONS = {
     "power_drift": (
-        "실제 전원 출력이 Lot 진행에 따라 변하고, "
+        "실제 전원 출력이 설정값보다 높아지거나 낮아지면서 "
         "증착률·두께·면저항이 함께 변합니다."
     ),
     "flow_drop": (
-        "실제 Ar 유량과 챔버 압력이 함께 낮아지고, "
-        "증착률과 두께가 감소하면서 면저항이 높아집니다."
+        "실제 Ar 유량이 설정값에서 벗어나 챔버 압력과 플라즈마 상태가 변하고, "
+        "증착률·두께·균일도에 영향을 줍니다."
     ),
     "pressure_rise": (
-        "실제 챔버 압력이 상승하면서 증착률과 두께가 감소하고 "
-        "균일도와 면저항이 악화됩니다."
+        "실제 챔버 압력이 설정값보다 높아지거나 낮아지면서 "
+        "증착률과 두께가 변하고 균일도와 면저항이 악화될 수 있습니다."
     ),
     "target_wear": (
-        "주요 공정 변수는 설정값 부근을 유지하지만 "
-        "증착률이 서서히 낮아지고 균일도와 면저항이 악화됩니다."
+        "타겟 침식이나 보상 제어로 증착률·두께·균일도·면저항이 변합니다. "
+        "두께가 감소하거나 유지되거나 과보상으로 증가할 수 있습니다."
     ),
 }
+
+UNKNOWN_CAUSES = {
+    "time_overrun": "증착 시간 과다",
+    "metrology_bias": "두께 측정 장비 편향",
+    "substrate_temperature": "기판 온도 이상",
+    "shutter_timing": "셔터 동작 이상",
+}
+
+AI_ABNORMAL_THRESHOLD = 0.58
+
 
 
 DIFFICULTIES = {
@@ -264,20 +274,24 @@ AI_FEATURE_COLUMNS = [
     "material_Cu",
     "material_Ti",
     "material_Ta",
-    "difficulty_easy",
-    "difficulty_normal",
-    "difficulty_hard",
-    "difficulty_expert",
     "lot_number",
     "mean_thickness_nm",
     "std_thickness_nm",
     "mean_uniformity_pct",
     "mean_sheet_resistance_ohm_sq",
     "oos_ratio",
+    "thickness_dev_target_nm",
+    "thickness_abs_dev_target_nm",
+    "uniformity_over_limit_pctp",
+    "resistance_dev_reference_pct",
     "power_dev_set_pct",
     "flow_dev_set_pct",
     "pressure_dev_set_pct",
     "rate_dev_set_pct",
+    "power_abs_dev_set_pct",
+    "flow_abs_dev_set_pct",
+    "pressure_abs_dev_set_pct",
+    "rate_abs_dev_set_pct",
     "thickness_delta_baseline",
     "std_delta_baseline",
     "uniformity_delta_baseline",
@@ -291,37 +305,49 @@ AI_FEATURE_COLUMNS = [
     "resistance_delta_previous_pct",
 ]
 
+DIFFICULTY_SHORTCUT_FEATURES = [
+    "difficulty_easy",
+    "difficulty_normal",
+    "difficulty_hard",
+    "difficulty_expert",
+]
+
 AI_FEATURE_LABELS = {
     "material_Al": "재료: Al",
     "material_Cu": "재료: Cu",
     "material_Ti": "재료: Ti",
     "material_Ta": "재료: Ta",
-    "difficulty_easy": "난이도: 쉬움",
-    "difficulty_normal": "난이도: 보통",
-    "difficulty_hard": "난이도: 어려움",
-    "difficulty_expert": "난이도: 전문가",
     "lot_number": "Lot 번호",
     "mean_thickness_nm": "평균 두께",
     "std_thickness_nm": "두께 표준편차",
     "mean_uniformity_pct": "평균 균일도",
     "mean_sheet_resistance_ohm_sq": "예상 면저항",
     "oos_ratio": "두께 이탈 비율",
+    "thickness_dev_target_nm": "목표 두께 대비 편차",
+    "thickness_abs_dev_target_nm": "목표 두께 대비 절대 편차",
+    "uniformity_over_limit_pctp": "균일도 기준 초과량",
+    "resistance_dev_reference_pct": "기준 면저항 대비 편차",
     "power_dev_set_pct": "전원 출력 설정값 편차",
     "flow_dev_set_pct": "Ar 유량 설정값 편차",
     "pressure_dev_set_pct": "챔버 압력 설정값 편차",
     "rate_dev_set_pct": "증착률 기준 편차",
-    "thickness_delta_baseline": "정상 기준 대비 두께 변화",
-    "std_delta_baseline": "정상 기준 대비 산포 변화",
-    "uniformity_delta_baseline": "정상 기준 대비 균일도 변화",
-    "resistance_delta_baseline_pct": "정상 기준 대비 면저항 변화",
-    "power_delta_baseline_pct": "정상 기준 대비 Power 변화",
-    "flow_delta_baseline_pct": "정상 기준 대비 Ar Flow 변화",
-    "pressure_delta_baseline_pct": "정상 기준 대비 Pressure 변화",
-    "rate_delta_baseline_pct": "정상 기준 대비 증착률 변화",
+    "power_abs_dev_set_pct": "전원 출력 절대 편차",
+    "flow_abs_dev_set_pct": "Ar 유량 절대 편차",
+    "pressure_abs_dev_set_pct": "챔버 압력 절대 편차",
+    "rate_abs_dev_set_pct": "증착률 절대 편차",
+    "thickness_delta_baseline": "초기 두 Lot 대비 두께 변화",
+    "std_delta_baseline": "초기 두 Lot 대비 산포 변화",
+    "uniformity_delta_baseline": "초기 두 Lot 대비 균일도 변화",
+    "resistance_delta_baseline_pct": "초기 두 Lot 대비 면저항 변화",
+    "power_delta_baseline_pct": "초기 두 Lot 대비 전원 출력 변화",
+    "flow_delta_baseline_pct": "초기 두 Lot 대비 Ar 유량 변화",
+    "pressure_delta_baseline_pct": "초기 두 Lot 대비 압력 변화",
+    "rate_delta_baseline_pct": "초기 두 Lot 대비 증착률 변화",
     "thickness_delta_previous": "직전 Lot 대비 두께 변화",
     "uniformity_delta_previous": "직전 Lot 대비 균일도 변화",
     "resistance_delta_previous_pct": "직전 Lot 대비 면저항 변화",
 }
+
 
 RAW_COLUMNS = [
     "material",
@@ -641,14 +667,8 @@ def apply_cause_effect(
     hidden_uniformity_effect,
     hidden_resistivity_effect,
 ):
-    effective_progress = (
-        max(progress, 0)
-        * severity
-    )
-    observable_fraction = (
-        1.0
-        - compensation
-    )
+    effective_progress = max(progress, 0) * severity
+    observable_fraction = 1.0 - compensation
 
     if cause == "power_drift":
         true_power[mask] += (
@@ -663,11 +683,7 @@ def apply_cause_effect(
             * base_rate
             * 0.004
             * effective_progress
-            * (
-                0.40
-                + 0.60
-                * compensation
-            )
+            * (0.40 + 0.60 * compensation)
         )
         true_pressure[mask] += (
             sign
@@ -676,101 +692,109 @@ def apply_cause_effect(
             * effective_progress
             * overlap_strength
         )
-        hidden_uniformity_effect[
-            mask
-        ] += (
+        hidden_uniformity_effect[mask] += (
             0.08
             * effective_progress
             * overlap_strength
         )
 
     elif cause == "flow_drop":
-        true_flow[mask] -= (
-            0.85
+        # 유량 제어 이상은 상승과 하락을 모두 허용합니다.
+        true_flow[mask] += (
+            sign
+            * 0.85
             * effective_progress
             * observable_fraction
         )
-        true_pressure[mask] -= (
-            0.06
+        true_pressure[mask] += (
+            sign
+            * 0.08
             * effective_progress
             * observable_fraction
         )
-        hidden_rate_effect[mask] -= (
-            base_rate
+        hidden_rate_effect[mask] += (
+            sign
+            * base_rate
             * 0.004
             * effective_progress
-            * (
-                0.40
-                + 0.60
-                * compensation
-            )
+            * (0.40 + 0.60 * compensation)
         )
-        true_power[mask] += (
-            power_setpoint
+        true_power[mask] -= (
+            sign
+            * power_setpoint
             * 0.0025
             * effective_progress
             * overlap_strength
         )
-        hidden_uniformity_effect[
-            mask
-        ] += (
-            0.10
+        hidden_uniformity_effect[mask] += (
+            0.12
             * effective_progress
-            * overlap_strength
+            * (0.4 + overlap_strength)
         )
 
     elif cause == "pressure_rise":
+        # 압력 제어 이상도 설정값보다 높거나 낮은 두 방향을 생성합니다.
         true_pressure[mask] += (
-            0.25
+            sign
+            * 0.25
             * effective_progress
             * observable_fraction
         )
         hidden_rate_effect[mask] -= (
-            base_rate
-            * 0.005
+            sign
+            * base_rate
+            * 0.0035
             * effective_progress
         )
-        hidden_uniformity_effect[
-            mask
-        ] += (
+        hidden_uniformity_effect[mask] += (
             0.34
             * effective_progress
         )
-        hidden_resistivity_effect[
-            mask
-        ] += (
-            0.015
+        hidden_resistivity_effect[mask] += (
+            0.012
             * effective_progress
         )
         true_flow[mask] -= (
-            0.15
+            sign
+            * 0.15
             * effective_progress
             * overlap_strength
         )
 
     elif cause == "target_wear":
-        hidden_rate_effect[mask] -= (
-            base_rate
-            * 0.0075
-            * effective_progress
-        )
-        hidden_uniformity_effect[
-            mask
-        ] += (
+        # 음수 방향은 일반적인 증착률 저하, 양수 방향은 보상 제어의 과보상을 뜻합니다.
+        if sign < 0:
+            hidden_rate_effect[mask] -= (
+                base_rate
+                * 0.0075
+                * effective_progress
+            )
+            true_power[mask] += (
+                power_setpoint
+                * 0.0035
+                * effective_progress
+                * overlap_strength
+            )
+        else:
+            true_power[mask] += (
+                power_setpoint
+                * 0.0080
+                * effective_progress
+                * (0.5 + 0.5 * observable_fraction)
+            )
+            hidden_rate_effect[mask] -= (
+                base_rate
+                * 0.0020
+                * effective_progress
+            )
+
+        hidden_uniformity_effect[mask] += (
             0.24
             * effective_progress
         )
-        hidden_resistivity_effect[
-            mask
-        ] += (
+        hidden_resistivity_effect[mask] += (
             0.012
             * effective_progress
-        )
-        true_power[mask] += (
-            power_setpoint
-            * 0.004
-            * effective_progress
-            * overlap_strength
         )
         true_pressure[mask] += (
             pressure_setpoint
@@ -778,7 +802,6 @@ def apply_cause_effect(
             * effective_progress
             * overlap_strength
         )
-
 
 def generate_lot_measurements(
     rng,
@@ -1584,83 +1607,42 @@ def summarize(df):
 
 
 def inject_fault():
-    if (
-        st.session_state.current_lot
-        < 2
-    ):
+    if st.session_state.cause_key is not None:
         return (
             False,
-            "정상 기준을 만들기 위해 "
-            "Lot을 2개 먼저 생산하세요.",
-        )
-
-    if (
-        st.session_state.cause_key
-        is not None
-    ):
-        return (
-            False,
-            "현재 문제에는 이미 "
-            "이상 상황이 적용되어 있습니다.",
+            "현재 문제에는 이미 이상 상황이 적용되어 있습니다.",
         )
 
     rng = st.session_state.rng
-    difficulty = (
-        st.session_state.active_difficulty
-    )
+    difficulty = st.session_state.active_difficulty
 
     fault_start_lot = (
         st.session_state.current_lot
-        + int(
-            rng.integers(1, 3)
-        )
+        + int(rng.integers(1, 3))
     )
 
-    event_min_lot = (
-        st.session_state.current_lot
-        + 1
-    )
-    event_max_lot = (
-        st.session_state.current_lot
-        + 10
-    )
+    event_min_lot = st.session_state.current_lot + 1
+    event_max_lot = st.session_state.current_lot + 10
 
     profile = build_case_profile(
         rng=rng,
         difficulty=difficulty,
-        fault_start_lot=(
-            fault_start_lot
-        ),
-        event_min_lot=(
-            event_min_lot
-        ),
-        event_max_lot=(
-            event_max_lot
-        ),
+        fault_start_lot=fault_start_lot,
+        event_min_lot=event_min_lot,
+        event_max_lot=event_max_lot,
         has_fault=True,
     )
 
-    st.session_state.case_profile = (
-        profile
-    )
-    st.session_state.cause_key = (
-        profile["primary_cause"]
-    )
-    st.session_state.secondary_cause_key = (
-        profile["secondary_cause"]
-    )
-    st.session_state.fault_start_lot = (
-        profile["fault_start_lot"]
-    )
+    st.session_state.case_profile = profile
+    st.session_state.cause_key = profile["primary_cause"]
+    st.session_state.secondary_cause_key = profile["secondary_cause"]
+    st.session_state.fault_start_lot = profile["fault_start_lot"]
 
     return (
         True,
-        "이상 상황이 시작되었습니다. "
-        "이상 원인과 발생 시점은 진단 결과를 확인할 때 공개됩니다. "
-        "난이도에 따라 측정 노이즈, 일시적 변동, 센서 편향, "
-        "복합 이상이 포함될 수 있습니다.",
+        "이상 상황이 설정되었습니다. 이상 원인과 발생 시점은 진단 결과에서 공개됩니다. "
+        "Lot 생산 전 설정하면 첫 번째 또는 두 번째 Lot부터 이상이 나타날 수 있습니다.",
     )
-
 
 def produce_lot():
     material = (
@@ -1859,29 +1841,28 @@ def simulate_training_case(
     rng,
     difficulty,
 ):
-    material = str(
-        rng.choice(
-            list(MATERIALS.keys())
-        )
-    )
-
-    lot_count = int(
-        rng.integers(8, 14)
-    )
-    has_fault = bool(
-        rng.random() >= 0.15
-    )
+    material = str(rng.choice(list(MATERIALS.keys())))
+    lot_count = int(rng.integers(8, 14))
+    has_fault = bool(rng.random() >= 0.15)
 
     if has_fault:
-        fault_start_lot = int(
-            rng.integers(
-                3,
-                max(
-                    4,
-                    lot_count - 1,
-                ),
+        start_mode = str(
+            rng.choice(
+                ["lot1", "lot2", "later"],
+                p=[0.18, 0.17, 0.65],
             )
         )
+        if start_mode == "lot1":
+            fault_start_lot = 1
+        elif start_mode == "lot2":
+            fault_start_lot = 2
+        else:
+            fault_start_lot = int(
+                rng.integers(
+                    3,
+                    max(4, lot_count - 1),
+                )
+            )
     else:
         fault_start_lot = None
 
@@ -1890,42 +1871,30 @@ def simulate_training_case(
         difficulty=difficulty,
         fault_start_lot=(
             fault_start_lot
-            if fault_start_lot
-            is not None
-            else 3
+            if fault_start_lot is not None
+            else 1
         ),
-        event_min_lot=3,
-        event_max_lot=(
-            lot_count - 1
-        ),
+        event_min_lot=1,
+        event_max_lot=lot_count - 1,
         has_fault=has_fault,
     )
 
     summary_rows = []
 
-    for lot in range(
-        1,
-        lot_count + 1,
-    ):
-        measurements = (
-            generate_lot_measurements(
-                rng=rng,
-                material=material,
-                lot=lot,
-                profile=profile,
-            )
+    for lot in range(1, lot_count + 1):
+        measurements = generate_lot_measurements(
+            rng=rng,
+            material=material,
+            lot=lot,
+            profile=profile,
         )
 
         target = (
-            profile[
-                "primary_cause"
-            ]
+            profile["primary_cause"]
             if (
                 has_fault
-                and fault_start_lot
-                is not None
-                and lot
-                >= fault_start_lot
+                and fault_start_lot is not None
+                and lot >= fault_start_lot
             )
             else "normal"
         )
@@ -1936,39 +1905,24 @@ def simulate_training_case(
                 material=material,
                 difficulty=difficulty,
                 lot=lot,
-                measurements=(
-                    measurements
-                ),
+                measurements=measurements,
                 target=target,
-                primary_cause=profile[
-                    "primary_cause"
-                ],
-                secondary_cause=profile[
-                    "secondary_cause"
-                ],
-                fault_start_lot=(
-                    fault_start_lot
-                ),
-                severity=profile[
-                    "severity"
-                ],
+                primary_cause=profile["primary_cause"],
+                secondary_cause=profile["secondary_cause"],
+                fault_start_lot=fault_start_lot,
+                severity=profile["severity"],
             )
         )
 
-    return pd.DataFrame(
-        summary_rows
-    )
-
+    return pd.DataFrame(summary_rows)
 
 def build_ai_features(
     summary,
     material,
-    difficulty="normal",
+    difficulty=None,
 ):
     if summary.empty:
-        return pd.DataFrame(
-            columns=AI_FEATURE_COLUMNS
-        )
+        return pd.DataFrame(columns=AI_FEATURE_COLUMNS)
 
     work = (
         summary
@@ -1977,290 +1931,132 @@ def build_ai_features(
         .copy()
     )
     recipe = get_recipe(material)
+    resistance_reference = reference_sheet_resistance(material)
 
-    baseline_rows = work.iloc[
-        : min(2, len(work))
-    ]
-
+    baseline_rows = work.iloc[: min(2, len(work))]
     baseline = {
-        "thickness": float(
-            baseline_rows[
-                "mean_thickness_nm"
-            ].mean()
-        ),
-        "std": float(
-            baseline_rows[
-                "std_thickness_nm"
-            ].mean()
-        ),
-        "uniformity": float(
-            baseline_rows[
-                "mean_uniformity_pct"
-            ].mean()
-        ),
+        "thickness": float(baseline_rows["mean_thickness_nm"].mean()),
+        "std": float(baseline_rows["std_thickness_nm"].mean()),
+        "uniformity": float(baseline_rows["mean_uniformity_pct"].mean()),
         "resistance": float(
-            baseline_rows[
-                "mean_sheet_resistance_ohm_sq"
-            ].mean()
+            baseline_rows["mean_sheet_resistance_ohm_sq"].mean()
         ),
-        "power": float(
-            baseline_rows[
-                "mean_power_w"
-            ].mean()
-        ),
-        "flow": float(
-            baseline_rows[
-                "mean_ar_flow_sccm"
-            ].mean()
-        ),
-        "pressure": float(
-            baseline_rows[
-                "mean_pressure_mtorr"
-            ].mean()
-        ),
-        "rate": float(
-            baseline_rows[
-                "mean_rate_nm_s"
-            ].mean()
-        ),
+        "power": float(baseline_rows["mean_power_w"].mean()),
+        "flow": float(baseline_rows["mean_ar_flow_sccm"].mean()),
+        "pressure": float(baseline_rows["mean_pressure_mtorr"].mean()),
+        "rate": float(baseline_rows["mean_rate_nm_s"].mean()),
     }
 
     rows = []
 
     for index, row in work.iterrows():
-        previous = (
-            work.iloc[index - 1]
-            if index > 0
-            else row
+        previous = work.iloc[index - 1] if index > 0 else row
+
+        power_dev = (
+            (row["mean_power_w"] - recipe["power_w"])
+            / recipe["power_w"]
+            * 100
         )
+        flow_dev = (
+            (row["mean_ar_flow_sccm"] - recipe["ar_flow_sccm"])
+            / recipe["ar_flow_sccm"]
+            * 100
+        )
+        pressure_dev = (
+            (row["mean_pressure_mtorr"] - recipe["pressure_mtorr"])
+            / recipe["pressure_mtorr"]
+            * 100
+        )
+        rate_dev = (
+            (row["mean_rate_nm_s"] - recipe["base_rate_nm_s"])
+            / recipe["base_rate_nm_s"]
+            * 100
+        )
+        thickness_dev = row["mean_thickness_nm"] - TARGET_THICKNESS
 
         feature_row = {
-            "material_Al": int(
-                material == "Al"
-            ),
-            "material_Cu": int(
-                material == "Cu"
-            ),
-            "material_Ti": int(
-                material == "Ti"
-            ),
-            "material_Ta": int(
-                material == "Ta"
-            ),
-            "difficulty_easy": int(
-                difficulty == "easy"
-            ),
-            "difficulty_normal": int(
-                difficulty == "normal"
-            ),
-            "difficulty_hard": int(
-                difficulty == "hard"
-            ),
-            "difficulty_expert": int(
-                difficulty == "expert"
-            ),
-            "lot_number": float(
-                row["lot"]
-            ),
-            "mean_thickness_nm": float(
-                row[
-                    "mean_thickness_nm"
-                ]
-            ),
-            "std_thickness_nm": float(
-                row[
-                    "std_thickness_nm"
-                ]
-            ),
-            "mean_uniformity_pct": float(
-                row[
-                    "mean_uniformity_pct"
-                ]
-            ),
+            "material_Al": int(material == "Al"),
+            "material_Cu": int(material == "Cu"),
+            "material_Ti": int(material == "Ti"),
+            "material_Ta": int(material == "Ta"),
+            "lot_number": float(row["lot"]),
+            "mean_thickness_nm": float(row["mean_thickness_nm"]),
+            "std_thickness_nm": float(row["std_thickness_nm"]),
+            "mean_uniformity_pct": float(row["mean_uniformity_pct"]),
             "mean_sheet_resistance_ohm_sq": float(
-                row[
-                    "mean_sheet_resistance_ohm_sq"
-                ]
+                row["mean_sheet_resistance_ohm_sq"]
             ),
-            "oos_ratio": float(
-                row["oos_count"]
-                / WAFERS_PER_LOT
+            "oos_ratio": float(row["oos_count"] / WAFERS_PER_LOT),
+            "thickness_dev_target_nm": float(thickness_dev),
+            "thickness_abs_dev_target_nm": float(abs(thickness_dev)),
+            "uniformity_over_limit_pctp": float(
+                max(row["mean_uniformity_pct"] - UNIFORMITY_LIMIT, 0.0)
             ),
-            "power_dev_set_pct": float(
-                (
-                    row["mean_power_w"]
-                    - recipe["power_w"]
-                )
-                / recipe["power_w"]
+            "resistance_dev_reference_pct": float(
+                (row["mean_sheet_resistance_ohm_sq"] - resistance_reference)
+                / max(abs(resistance_reference), 1e-9)
                 * 100
             ),
-            "flow_dev_set_pct": float(
-                (
-                    row[
-                        "mean_ar_flow_sccm"
-                    ]
-                    - recipe[
-                        "ar_flow_sccm"
-                    ]
-                )
-                / recipe[
-                    "ar_flow_sccm"
-                ]
-                * 100
-            ),
-            "pressure_dev_set_pct": float(
-                (
-                    row[
-                        "mean_pressure_mtorr"
-                    ]
-                    - recipe[
-                        "pressure_mtorr"
-                    ]
-                )
-                / recipe[
-                    "pressure_mtorr"
-                ]
-                * 100
-            ),
-            "rate_dev_set_pct": float(
-                (
-                    row["mean_rate_nm_s"]
-                    - recipe[
-                        "base_rate_nm_s"
-                    ]
-                )
-                / recipe[
-                    "base_rate_nm_s"
-                ]
-                * 100
-            ),
+            "power_dev_set_pct": float(power_dev),
+            "flow_dev_set_pct": float(flow_dev),
+            "pressure_dev_set_pct": float(pressure_dev),
+            "rate_dev_set_pct": float(rate_dev),
+            "power_abs_dev_set_pct": float(abs(power_dev)),
+            "flow_abs_dev_set_pct": float(abs(flow_dev)),
+            "pressure_abs_dev_set_pct": float(abs(pressure_dev)),
+            "rate_abs_dev_set_pct": float(abs(rate_dev)),
             "thickness_delta_baseline": float(
-                row[
-                    "mean_thickness_nm"
-                ]
-                - baseline["thickness"]
+                row["mean_thickness_nm"] - baseline["thickness"]
             ),
             "std_delta_baseline": float(
-                row[
-                    "std_thickness_nm"
-                ]
-                - baseline["std"]
+                row["std_thickness_nm"] - baseline["std"]
             ),
             "uniformity_delta_baseline": float(
-                row[
-                    "mean_uniformity_pct"
-                ]
-                - baseline[
-                    "uniformity"
-                ]
+                row["mean_uniformity_pct"] - baseline["uniformity"]
             ),
             "resistance_delta_baseline_pct": float(
-                (
-                    row[
-                        "mean_sheet_resistance_ohm_sq"
-                    ]
-                    - baseline[
-                        "resistance"
-                    ]
-                )
-                / max(
-                    abs(
-                        baseline[
-                            "resistance"
-                        ]
-                    ),
-                    1e-9,
-                )
+                (row["mean_sheet_resistance_ohm_sq"] - baseline["resistance"])
+                / max(abs(baseline["resistance"]), 1e-9)
                 * 100
             ),
             "power_delta_baseline_pct": float(
-                (
-                    row["mean_power_w"]
-                    - baseline["power"]
-                )
+                (row["mean_power_w"] - baseline["power"])
                 / recipe["power_w"]
                 * 100
             ),
             "flow_delta_baseline_pct": float(
-                (
-                    row[
-                        "mean_ar_flow_sccm"
-                    ]
-                    - baseline["flow"]
-                )
-                / recipe[
-                    "ar_flow_sccm"
-                ]
+                (row["mean_ar_flow_sccm"] - baseline["flow"])
+                / recipe["ar_flow_sccm"]
                 * 100
             ),
             "pressure_delta_baseline_pct": float(
-                (
-                    row[
-                        "mean_pressure_mtorr"
-                    ]
-                    - baseline[
-                        "pressure"
-                    ]
-                )
-                / recipe[
-                    "pressure_mtorr"
-                ]
+                (row["mean_pressure_mtorr"] - baseline["pressure"])
+                / recipe["pressure_mtorr"]
                 * 100
             ),
             "rate_delta_baseline_pct": float(
-                (
-                    row["mean_rate_nm_s"]
-                    - baseline["rate"]
-                )
-                / recipe[
-                    "base_rate_nm_s"
-                ]
+                (row["mean_rate_nm_s"] - baseline["rate"])
+                / recipe["base_rate_nm_s"]
                 * 100
             ),
             "thickness_delta_previous": float(
-                row[
-                    "mean_thickness_nm"
-                ]
-                - previous[
-                    "mean_thickness_nm"
-                ]
+                row["mean_thickness_nm"] - previous["mean_thickness_nm"]
             ),
             "uniformity_delta_previous": float(
-                row[
-                    "mean_uniformity_pct"
-                ]
-                - previous[
-                    "mean_uniformity_pct"
-                ]
+                row["mean_uniformity_pct"] - previous["mean_uniformity_pct"]
             ),
             "resistance_delta_previous_pct": float(
                 (
-                    row[
-                        "mean_sheet_resistance_ohm_sq"
-                    ]
-                    - previous[
-                        "mean_sheet_resistance_ohm_sq"
-                    ]
+                    row["mean_sheet_resistance_ohm_sq"]
+                    - previous["mean_sheet_resistance_ohm_sq"]
                 )
-                / max(
-                    abs(
-                        previous[
-                            "mean_sheet_resistance_ohm_sq"
-                        ]
-                    ),
-                    1e-9,
-                )
+                / max(abs(previous["mean_sheet_resistance_ohm_sq"]), 1e-9)
                 * 100
             ),
         }
-
         rows.append(feature_row)
 
-    return pd.DataFrame(
-        rows,
-        columns=AI_FEATURE_COLUMNS,
-    )
-
+    return pd.DataFrame(rows, columns=AI_FEATURE_COLUMNS)
 
 @st.cache_data(
     show_spinner=False,
@@ -2373,6 +2169,245 @@ def generate_ai_training_dataset(
     )
 
 
+
+def add_difficulty_shortcut_features(dataset):
+    shortcut = dataset[AI_FEATURE_COLUMNS].copy()
+    for difficulty in DIFFICULTY_ORDER:
+        shortcut[f"difficulty_{difficulty}"] = (
+            dataset["difficulty"] == difficulty
+        ).astype(int)
+    return shortcut
+
+
+def detect_case_from_probabilities(
+    case_data,
+    abnormal_threshold,
+    confidence_threshold=0.0,
+    margin_threshold=0.0,
+):
+    ordered = case_data.sort_values("lot").reset_index(drop=True).copy()
+    normal_probability = (
+        ordered["probability_normal"]
+        if "probability_normal" in ordered.columns
+        else pd.Series(np.zeros(len(ordered)))
+    )
+    ordered["abnormal_probability"] = 1.0 - normal_probability.to_numpy()
+
+    predicted_start = None
+    detection_index = None
+    for row_index in range(len(ordered)):
+        current = float(ordered.loc[row_index, "abnormal_probability"])
+        next_value = (
+            float(ordered.loc[row_index + 1, "abnormal_probability"])
+            if row_index + 1 < len(ordered)
+            else current
+        )
+        if (
+            current >= abnormal_threshold
+            and (
+                next_value >= abnormal_threshold - 0.05
+                or current >= abnormal_threshold + 0.15
+            )
+        ):
+            predicted_start = int(ordered.loc[row_index, "lot"])
+            detection_index = row_index
+            break
+
+    if detection_index is None:
+        return {
+            "predicted_start": None,
+            "top_one": None,
+            "raw_top_one": None,
+            "top_two": [],
+            "top_probability": 0.0,
+            "second_probability": 0.0,
+            "margin": 0.0,
+            "abstained": True,
+        }
+
+    cause_columns = [
+        cause for cause in CAUSES
+        if f"probability_{cause}" in ordered.columns
+    ]
+    average_probabilities = {
+        cause: float(
+            ordered.loc[
+                detection_index:,
+                f"probability_{cause}",
+            ].mean()
+        )
+        for cause in cause_columns
+    }
+    ranked = sorted(
+        average_probabilities,
+        key=average_probabilities.get,
+        reverse=True,
+    )
+    top_one = ranked[0] if ranked else None
+    top_two = ranked[:2]
+    top_probability = (
+        average_probabilities[top_one]
+        if top_one is not None
+        else 0.0
+    )
+    second_probability = (
+        average_probabilities[top_two[1]]
+        if len(top_two) > 1
+        else 0.0
+    )
+    margin = top_probability - second_probability
+    abstained = (
+        top_one is None
+        or top_probability < confidence_threshold
+        or margin < margin_threshold
+    )
+
+    return {
+        "predicted_start": predicted_start,
+        "top_one": None if abstained else top_one,
+        "raw_top_one": top_one,
+        "top_two": top_two,
+        "top_probability": top_probability,
+        "second_probability": second_probability,
+        "margin": margin,
+        "abstained": abstained,
+    }
+
+
+def simulate_unknown_case(case_id, rng, difficulty):
+    material = str(rng.choice(list(MATERIALS.keys())))
+    material_props = MATERIALS[material]
+    lot_count = int(rng.integers(8, 14))
+    unknown_key = str(rng.choice(list(UNKNOWN_CAUSES.keys())))
+    fault_start_lot = int(
+        rng.choice(
+            [1, 2, int(rng.integers(3, max(4, lot_count - 1)))],
+            p=[0.20, 0.20, 0.60],
+        )
+    )
+    severity = float(rng.uniform(0.55, 1.20))
+    sign = int(rng.choice([-1, 1]))
+
+    profile = build_case_profile(
+        rng=rng,
+        difficulty=difficulty,
+        fault_start_lot=1,
+        event_min_lot=1,
+        event_max_lot=lot_count - 1,
+        has_fault=False,
+    )
+
+    summary_rows = []
+
+    for lot in range(1, lot_count + 1):
+        measurements = generate_lot_measurements(
+            rng=rng,
+            material=material,
+            lot=lot,
+            profile=profile,
+        )
+
+        if lot >= fault_start_lot:
+            progress = lot - fault_start_lot + 1
+            thickness = measurements["thickness"]
+            uniformity = measurements["uniformity"]
+            sheet_resistance = measurements["sheet_resistance"]
+
+            if unknown_key == "time_overrun":
+                # 공정 변수와 증착률은 정상에 가깝지만 증착 시간이 길어져 두께가 증가합니다.
+                factor = 1.0 + 0.0065 * progress * severity
+                measurements["time_actual"] *= factor
+                thickness *= factor
+                sheet_resistance /= factor
+
+            elif unknown_key == "metrology_bias":
+                # 실제 공정은 정상인데 두께 측정값만 한 방향으로 치우칩니다.
+                offset = sign * 0.50 * progress * severity
+                thickness += offset
+                sheet_resistance[:] = (
+                    10
+                    * material_props["bulk_resistivity_uohm_cm"]
+                    * THIN_FILM_RESISTIVITY_FACTOR
+                    / np.maximum(thickness, 1.0)
+                )
+
+            elif unknown_key == "substrate_temperature":
+                # 두께 변화는 작지만 막질과 균일도, 면저항이 악화됩니다.
+                thickness += sign * 0.10 * progress * severity
+                uniformity += 0.36 * progress * severity
+                sheet_resistance *= 1.0 + 0.022 * progress * severity
+
+            elif unknown_key == "shutter_timing":
+                # 일부 웨이퍼에만 두께 상승 또는 하락이 나타납니다.
+                affected_count = max(
+                    2,
+                    int(round(WAFERS_PER_LOT * rng.uniform(0.20, 0.45))),
+                )
+                affected = rng.choice(
+                    WAFERS_PER_LOT,
+                    size=affected_count,
+                    replace=False,
+                )
+                thickness[affected] += (
+                    sign
+                    * 0.75
+                    * progress
+                    * severity
+                    * rng.uniform(0.75, 1.25, affected_count)
+                )
+                sheet_resistance[affected] = (
+                    10
+                    * material_props["bulk_resistivity_uohm_cm"]
+                    * THIN_FILM_RESISTIVITY_FACTOR
+                    / np.maximum(thickness[affected], 1.0)
+                )
+
+        summary_rows.append(
+            lot_measurements_to_summary(
+                case_id=case_id,
+                material=material,
+                difficulty=difficulty,
+                lot=lot,
+                measurements=measurements,
+                target="unknown" if lot >= fault_start_lot else "normal",
+                primary_cause="unknown",
+                secondary_cause=unknown_key,
+                fault_start_lot=fault_start_lot,
+                severity=severity,
+            )
+        )
+
+    result = pd.DataFrame(summary_rows)
+    result["unknown_cause"] = unknown_key
+    return result
+
+
+@st.cache_data(show_spinner=False)
+def generate_unknown_test_dataset(case_count, dataset_seed):
+    rng = np.random.default_rng(int(dataset_seed) + 99173)
+    rows = []
+    for case_id in range(1, int(case_count) + 1):
+        difficulty = str(
+            rng.choice(
+                DIFFICULTY_ORDER,
+                p=[0.20, 0.35, 0.30, 0.15],
+            )
+        )
+        case_summary = simulate_unknown_case(case_id, rng, difficulty)
+        material = str(case_summary["material"].iloc[0])
+        features = build_ai_features(case_summary, material)
+        features.insert(0, "case_id", case_id)
+        features["material"] = material
+        features["difficulty"] = difficulty
+        features["lot"] = case_summary["lot"].to_numpy()
+        features["unknown_cause"] = case_summary["unknown_cause"].to_numpy()
+        features["actual_fault_start_lot"] = case_summary[
+            "actual_fault_start_lot"
+        ].to_numpy()
+        rows.append(features)
+    return pd.concat(rows, ignore_index=True)
+
+
 @st.cache_resource(
     show_spinner=False,
 )
@@ -2381,17 +2416,13 @@ def train_ai_model(
     dataset_seed,
     training_scope,
 ):
-    dataset = (
-        generate_ai_training_dataset(
-            int(case_count),
-            int(dataset_seed),
-            str(training_scope),
-        )
+    dataset = generate_ai_training_dataset(
+        int(case_count),
+        int(dataset_seed),
+        str(training_scope),
     )
 
-    x = dataset[
-        AI_FEATURE_COLUMNS
-    ]
+    x = dataset[AI_FEATURE_COLUMNS]
     y = dataset["target"]
     groups = dataset["case_id"]
 
@@ -2400,13 +2431,8 @@ def train_ai_model(
         test_size=0.20,
         random_state=42,
     )
-
     train_index, test_index = next(
-        splitter.split(
-            x,
-            y,
-            groups=groups,
-        )
+        splitter.split(x, y, groups=groups)
     )
 
     x_train = x.iloc[train_index]
@@ -2414,37 +2440,46 @@ def train_ai_model(
     y_train = y.iloc[train_index]
     y_test = y.iloc[test_index]
 
-    model = RandomForestClassifier(
-        n_estimators=250,
+    model_parameters = dict(
+        n_estimators=230,
         max_depth=16,
         min_samples_leaf=3,
         max_features="sqrt",
-        class_weight=(
-            "balanced_subsample"
-        ),
+        class_weight="balanced_subsample",
         random_state=42,
         n_jobs=-1,
     )
 
-    model.fit(
-        x_train,
-        y_train,
-    )
+    model = RandomForestClassifier(**model_parameters)
+    model.fit(x_train, y_train)
+    prediction = model.predict(x_test)
+    probability = model.predict_proba(x_test)
 
-    prediction = model.predict(
-        x_test
-    )
-    probability = model.predict_proba(
-        x_test
-    )
-
-    accuracy = accuracy_score(
-        y_test,
-        prediction,
-    )
+    accuracy = accuracy_score(y_test, prediction)
     macro_f1 = f1_score(
         y_test,
         prediction,
+        average="macro",
+        zero_division=0,
+    )
+
+    # 비교 실험: 실제 현장에는 없는 난이도 라벨을 입력한 모델
+    shortcut_x = add_difficulty_shortcut_features(dataset)
+    shortcut_model = RandomForestClassifier(**model_parameters)
+    shortcut_model.fit(
+        shortcut_x.iloc[train_index],
+        y_train,
+    )
+    shortcut_prediction = shortcut_model.predict(
+        shortcut_x.iloc[test_index]
+    )
+    shortcut_accuracy = accuracy_score(
+        y_test,
+        shortcut_prediction,
+    )
+    shortcut_macro_f1 = f1_score(
+        y_test,
+        shortcut_prediction,
         average="macro",
         zero_division=0,
     )
@@ -2454,19 +2489,14 @@ def train_ai_model(
         prediction,
         labels=AI_CLASS_ORDER,
     )
-
     report = classification_report(
         y_test,
         prediction,
         labels=AI_CLASS_ORDER,
-        target_names=[
-            AI_LABELS[label]
-            for label in AI_CLASS_ORDER
-        ],
+        target_names=[AI_LABELS[label] for label in AI_CLASS_ORDER],
         output_dict=True,
         zero_division=0,
     )
-
     report_df = (
         pd.DataFrame(report)
         .transpose()
@@ -2484,613 +2514,369 @@ def train_ai_model(
 
     importance_df = (
         pd.DataFrame({
-            "feature": (
-                AI_FEATURE_COLUMNS
-            ),
-            "importance": (
-                model.feature_importances_
-            ),
+            "feature": AI_FEATURE_COLUMNS,
+            "importance": model.feature_importances_,
         })
-        .sort_values(
-            "importance",
-            ascending=False,
-        )
+        .sort_values("importance", ascending=False)
         .reset_index(drop=True)
     )
-
-    importance_df[
-        "feature_label"
-    ] = importance_df[
-        "feature"
-    ].map(AI_FEATURE_LABELS)
-
-    test_dataset = (
-        dataset.iloc[
-            test_index
-        ]
-        .copy()
-        .reset_index(drop=True)
+    importance_df["feature_label"] = importance_df["feature"].map(
+        AI_FEATURE_LABELS
     )
-    test_dataset[
-        "prediction"
-    ] = prediction
 
+    test_dataset = dataset.iloc[test_index].copy().reset_index(drop=True)
+    test_dataset["prediction"] = prediction
     probability_df = pd.DataFrame(
         probability,
-        columns=list(
-            model.classes_
-        ),
+        columns=list(model.classes_),
     )
-
-    for class_name in (
-        model.classes_
-    ):
-        test_dataset[
-            f"probability_{class_name}"
-        ] = probability_df[
+    for class_name in model.classes_:
+        test_dataset[f"probability_{class_name}"] = probability_df[
             class_name
         ].to_numpy()
 
-    difficulty_rows = []
-
-    for difficulty in DIFFICULTY_ORDER:
-        difficulty_subset = (
-            test_dataset[
-                test_dataset[
-                    "difficulty"
-                ]
-                == difficulty
-            ]
+    # 먼저 유보 기준 없이 평가해 신뢰도 임계값을 보정합니다.
+    raw_case_records = []
+    for case_id, case_data in test_dataset.groupby("case_id"):
+        raw = detect_case_from_probabilities(
+            case_data,
+            abnormal_threshold=AI_ABNORMAL_THRESHOLD,
         )
+        actual_start = int(case_data["actual_fault_start_lot"].iloc[0])
+        primary = str(case_data["actual_case_cause"].iloc[0])
+        if (
+            actual_start > 0
+            and raw["predicted_start"] is not None
+            and raw["raw_top_one"] == primary
+        ):
+            raw_case_records.append(raw)
 
-        if difficulty_subset.empty:
+    if raw_case_records:
+        confidence_threshold = float(
+            np.clip(
+                np.quantile(
+                    [row["top_probability"] for row in raw_case_records],
+                    0.20,
+                ),
+                0.48,
+                0.70,
+            )
+        )
+        margin_threshold = float(
+            np.clip(
+                np.quantile(
+                    [row["margin"] for row in raw_case_records],
+                    0.15,
+                ),
+                0.06,
+                0.20,
+            )
+        )
+    else:
+        confidence_threshold = 0.55
+        margin_threshold = 0.10
+
+    def build_case_records(frame):
+        records = []
+        for case_id, case_data in frame.groupby("case_id"):
+            result = detect_case_from_probabilities(
+                case_data,
+                abnormal_threshold=AI_ABNORMAL_THRESHOLD,
+                confidence_threshold=confidence_threshold,
+                margin_threshold=margin_threshold,
+            )
+            actual_start = int(
+                case_data["actual_fault_start_lot"].iloc[0]
+            )
+            records.append({
+                "case_id": case_id,
+                "difficulty": str(case_data["difficulty"].iloc[0]),
+                "is_fault_case": actual_start > 0,
+                "actual_start": actual_start,
+                "predicted_start": result["predicted_start"],
+                "primary_cause": str(
+                    case_data["actual_case_cause"].iloc[0]
+                ),
+                "secondary_cause": str(
+                    case_data["secondary_cause"].iloc[0]
+                ),
+                "predicted_primary": result["top_one"],
+                "raw_top_one": result["raw_top_one"],
+                "top_two": result["top_two"],
+                "abstained": result["abstained"],
+                "top_probability": result["top_probability"],
+                "margin": result["margin"],
+            })
+        return pd.DataFrame(records)
+
+    case_frame = build_case_records(test_dataset)
+
+    difficulty_rows = []
+    for difficulty in DIFFICULTY_ORDER:
+        lot_subset = test_dataset[test_dataset["difficulty"] == difficulty]
+        case_subset = case_frame[case_frame["difficulty"] == difficulty]
+        if lot_subset.empty or case_subset.empty:
             continue
 
-        row_accuracy = accuracy_score(
-            difficulty_subset[
-                "target"
-            ],
-            difficulty_subset[
-                "prediction"
-            ],
+        fault_cases = case_subset[case_subset["is_fault_case"]]
+        normal_cases = case_subset[~case_subset["is_fault_case"]]
+        predicted_numeric = pd.to_numeric(
+            fault_cases["predicted_start"],
+            errors="coerce",
         )
-        row_macro_f1 = f1_score(
-            difficulty_subset[
-                "target"
-            ],
-            difficulty_subset[
-                "prediction"
-            ],
-            average="macro",
-            zero_division=0,
-        )
-
-        case_records = []
-
-        for (
-            case_id,
-            case_data,
-        ) in difficulty_subset.groupby(
-            "case_id"
-        ):
-            case_data = (
-                case_data
-                .sort_values("lot")
-                .reset_index(drop=True)
-            )
-
-            actual_start = int(
-                case_data[
-                    "actual_fault_start_lot"
-                ].iloc[0]
-            )
-            primary_cause = str(
-                case_data[
-                    "actual_case_cause"
-                ].iloc[0]
-            )
-            secondary_cause = str(
-                case_data[
-                    "secondary_cause"
-                ].iloc[0]
-            )
-
-            normal_probability = (
-                case_data[
-                    "probability_normal"
-                ]
-                if "probability_normal"
-                in case_data.columns
-                else pd.Series(
-                    np.zeros(
-                        len(case_data)
-                    )
-                )
-            )
-
-            case_data = case_data.copy()
-            case_data[
-                "abnormal_probability"
-            ] = (
-                1.0
-                - normal_probability.to_numpy()
-            )
-
-            threshold = DIFFICULTIES[
-                difficulty
-            ]["ai_threshold"]
-
-            predicted_start = None
-
-            for row_index in range(
-                len(case_data)
-            ):
-                current_probability = float(
-                    case_data.loc[
-                        row_index,
-                        "abnormal_probability",
-                    ]
-                )
-                next_probability = (
-                    float(
-                        case_data.loc[
-                            row_index + 1,
-                            "abnormal_probability",
-                        ]
-                    )
-                    if row_index + 1
-                    < len(case_data)
-                    else current_probability
-                )
-
-                if (
-                    current_probability
-                    >= threshold
-                    and (
-                        next_probability
-                        >= threshold
-                        - 0.05
-                        or current_probability
-                        >= threshold
-                        + 0.15
-                    )
-                ):
-                    predicted_start = int(
-                        case_data.loc[
-                            row_index,
-                            "lot",
-                        ]
-                    )
-                    break
-
-            ranked_causes = []
-
-            if predicted_start is not None:
-                after_detection = (
-                    case_data[
-                        case_data["lot"]
-                        >= predicted_start
-                    ]
-                )
-
-                average_probabilities = {
-                    cause: float(
-                        after_detection[
-                            f"probability_{cause}"
-                        ].mean()
-                    )
-                    for cause in CAUSES
-                    if (
-                        f"probability_{cause}"
-                        in after_detection.columns
-                    )
-                }
-
-                ranked_causes = sorted(
-                    average_probabilities,
-                    key=average_probabilities.get,
-                    reverse=True,
-                )
-
-            predicted_primary = (
-                ranked_causes[0]
-                if ranked_causes
-                else None
-            )
-
-            top_two = ranked_causes[:2]
-
-            case_records.append({
-                "is_fault_case": (
-                    actual_start > 0
-                ),
-                "actual_start": (
-                    actual_start
-                ),
-                "predicted_start": (
-                    predicted_start
-                ),
-                "primary_cause": (
-                    primary_cause
-                ),
-                "secondary_cause": (
-                    secondary_cause
-                ),
-                "predicted_primary": (
-                    predicted_primary
-                ),
-                "top_two": top_two,
-            })
-
-        case_frame = pd.DataFrame(
-            case_records
-        )
-
-        fault_cases = case_frame[
-            case_frame[
-                "is_fault_case"
-            ]
-        ]
-        normal_cases = case_frame[
-            ~case_frame[
-                "is_fault_case"
-            ]
-        ]
-
-        exact_accuracy = (
-            float(
-                (
-                    fault_cases[
-                        "predicted_start"
-                    ]
-                    == fault_cases[
-                        "actual_start"
-                    ]
-                ).mean()
-            )
-            if not fault_cases.empty
-            else np.nan
-        )
-
-        predicted_start_numeric = (
-            pd.to_numeric(
-                fault_cases[
-                    "predicted_start"
-                ],
-                errors="coerce",
-            )
-        )
-
-        plus_minus_one_accuracy = (
-            float(
-                (
-                    (
-                        predicted_start_numeric
-                        - fault_cases[
-                            "actual_start"
-                        ]
-                    ).abs()
-                    <= 1
-                ).mean()
-            )
-            if not fault_cases.empty
-            else np.nan
-        )
-
-        cause_accuracy = (
-            float(
-                (
-                    fault_cases[
-                        "predicted_primary"
-                    ]
-                    == fault_cases[
-                        "primary_cause"
-                    ]
-                ).mean()
-            )
-            if not fault_cases.empty
-            else np.nan
-        )
-
-        top_two_hits = []
-
-        for _, row in fault_cases.iterrows():
-            top_two = row["top_two"]
-            top_two_hits.append(
-                (
-                    row[
-                        "primary_cause"
-                    ]
-                    in top_two
-                )
+        top_two_hits = [
+            (
+                row["primary_cause"] in row["top_two"]
                 or (
-                    bool(
-                        row[
-                            "secondary_cause"
-                        ]
-                    )
-                    and row[
-                        "secondary_cause"
-                    ]
-                    in top_two
+                    bool(row["secondary_cause"])
+                    and row["secondary_cause"] in row["top_two"]
                 )
             )
-
-        top_two_accuracy = (
-            float(
-                np.mean(
-                    top_two_hits
-                )
-            )
-            if top_two_hits
-            else np.nan
-        )
-
-        false_alarm_rate = (
-            float(
-                normal_cases[
-                    "predicted_start"
-                ].notna().mean()
-            )
-            if not normal_cases.empty
-            else np.nan
-        )
+            for _, row in fault_cases.iterrows()
+        ]
 
         difficulty_rows.append({
-            "난이도": DIFFICULTY_LABELS[
-                difficulty
-            ],
-            "Lot 분류 정확도": (
-                row_accuracy
+            "난이도": DIFFICULTY_LABELS[difficulty],
+            "Lot 분류 정확도": accuracy_score(
+                lot_subset["target"],
+                lot_subset["prediction"],
             ),
-            "Macro F1": row_macro_f1,
-            "이상 Lot 정확 일치": (
-                exact_accuracy
+            "Macro F1": f1_score(
+                lot_subset["target"],
+                lot_subset["prediction"],
+                average="macro",
+                zero_division=0,
             ),
-            "±1 Lot 이내": (
-                plus_minus_one_accuracy
-            ),
-            "원인 정확도": (
-                cause_accuracy
-            ),
-            "Top-2 원인 적중률": (
-                top_two_accuracy
-            ),
-            "정상 문제 오탐률": (
-                false_alarm_rate
-            ),
-            "평가 문제": int(
-                case_frame.shape[0]
-            ),
+            "이상 Lot 정확 일치": float(
+                (fault_cases["predicted_start"] == fault_cases["actual_start"]).mean()
+            ) if not fault_cases.empty else np.nan,
+            "±1 Lot 이내": float(
+                ((predicted_numeric - fault_cases["actual_start"]).abs() <= 1).mean()
+            ) if not fault_cases.empty else np.nan,
+            "원인 정확도": float(
+                (fault_cases["predicted_primary"] == fault_cases["primary_cause"]).mean()
+            ) if not fault_cases.empty else np.nan,
+            "Top-2 원인 적중률": float(np.mean(top_two_hits))
+            if top_two_hits else np.nan,
+            "원인 판단 유보율": float(fault_cases["abstained"].mean())
+            if not fault_cases.empty else np.nan,
+            "정상 문제 오탐률": float(normal_cases["predicted_start"].notna().mean())
+            if not normal_cases.empty else np.nan,
+            "평가 문제": int(case_subset.shape[0]),
         })
 
-    difficulty_metrics = pd.DataFrame(
-        difficulty_rows
-    )
+    difficulty_metrics = pd.DataFrame(difficulty_rows)
 
-    train_case_count = int(
-        dataset.iloc[
-            train_index
-        ]["case_id"].nunique()
+    # 초기 이상과 깨끗한 기준 확보 후 이상을 분리해 평가합니다.
+    start_rows = []
+    condition_definitions = [
+        ("첫 Lot부터 이상", lambda frame: frame["actual_start"] == 1),
+        ("두 번째 Lot부터 이상", lambda frame: frame["actual_start"] == 2),
+        ("Lot 3 이후 이상", lambda frame: frame["actual_start"] >= 3),
+        ("정상 문제", lambda frame: ~frame["is_fault_case"]),
+    ]
+    for label, selector in condition_definitions:
+        subset = case_frame[selector(case_frame)]
+        if subset.empty:
+            continue
+        if label == "정상 문제":
+            start_rows.append({
+                "발생 조건": label,
+                "평가 문제": len(subset),
+                "이상 시점 정확 일치": np.nan,
+                "±1 Lot 이내": np.nan,
+                "원인 정확도": np.nan,
+                "원인 판단 유보율": np.nan,
+                "오탐률": float(subset["predicted_start"].notna().mean()),
+            })
+        else:
+            predicted_numeric = pd.to_numeric(
+                subset["predicted_start"],
+                errors="coerce",
+            )
+            start_rows.append({
+                "발생 조건": label,
+                "평가 문제": len(subset),
+                "이상 시점 정확 일치": float(
+                    (subset["predicted_start"] == subset["actual_start"]).mean()
+                ),
+                "±1 Lot 이내": float(
+                    ((predicted_numeric - subset["actual_start"]).abs() <= 1).mean()
+                ),
+                "원인 정확도": float(
+                    (subset["predicted_primary"] == subset["primary_cause"]).mean()
+                ),
+                "원인 판단 유보율": float(subset["abstained"].mean()),
+                "오탐률": np.nan,
+            })
+    start_condition_metrics = pd.DataFrame(start_rows)
+
+    # 학습에 없던 원인만 별도 생성해 유보가 실제로 작동하는지 확인합니다.
+    unknown_case_count = max(120, min(400, int(case_count) // 5))
+    unknown_dataset = generate_unknown_test_dataset(
+        unknown_case_count,
+        int(dataset_seed),
     )
-    test_case_count = int(
-        dataset.iloc[
-            test_index
-        ]["case_id"].nunique()
+    unknown_probability = model.predict_proba(
+        unknown_dataset[AI_FEATURE_COLUMNS]
     )
+    unknown_probability_df = pd.DataFrame(
+        unknown_probability,
+        columns=list(model.classes_),
+    )
+    for class_name in model.classes_:
+        unknown_dataset[f"probability_{class_name}"] = unknown_probability_df[
+            class_name
+        ].to_numpy()
+
+    unknown_records = []
+    for case_id, case_data in unknown_dataset.groupby("case_id"):
+        result = detect_case_from_probabilities(
+            case_data,
+            abnormal_threshold=AI_ABNORMAL_THRESHOLD,
+            confidence_threshold=confidence_threshold,
+            margin_threshold=margin_threshold,
+        )
+        unknown_records.append({
+            "case_id": case_id,
+            "unknown_cause": str(case_data["unknown_cause"].iloc[0]),
+            "detected": result["predicted_start"] is not None,
+            "abstained": result["abstained"],
+            "false_confident": (
+                result["predicted_start"] is not None
+                and not result["abstained"]
+            ),
+        })
+    unknown_frame = pd.DataFrame(unknown_records)
+
+    unknown_rows = []
+    for unknown_key, subset in unknown_frame.groupby("unknown_cause"):
+        detected_subset = subset[subset["detected"]]
+        unknown_rows.append({
+            "학습에 없던 원인": UNKNOWN_CAUSES[unknown_key],
+            "평가 문제": len(subset),
+            "이상 탐지율": float(subset["detected"].mean()),
+            "탐지 후 원인 판단 유보율": float(
+                detected_subset["abstained"].mean()
+            ) if not detected_subset.empty else np.nan,
+            "기존 원인으로 확신한 비율": float(
+                subset["false_confident"].mean()
+            ),
+        })
+    unknown_metrics = pd.DataFrame(unknown_rows)
+    detected_unknown = unknown_frame[unknown_frame["detected"]]
+    unknown_overall = {
+        "case_count": int(len(unknown_frame)),
+        "detection_rate": float(unknown_frame["detected"].mean()),
+        "abstention_rate_after_detection": float(
+            detected_unknown["abstained"].mean()
+        ) if not detected_unknown.empty else np.nan,
+        "false_confident_rate": float(unknown_frame["false_confident"].mean()),
+    }
+
+    train_case_count = int(dataset.iloc[train_index]["case_id"].nunique())
+    test_case_count = int(dataset.iloc[test_index]["case_id"].nunique())
 
     return {
         "model": model,
         "dataset": dataset,
         "accuracy": float(accuracy),
         "macro_f1": float(macro_f1),
+        "shortcut_accuracy": float(shortcut_accuracy),
+        "shortcut_macro_f1": float(shortcut_macro_f1),
+        "shortcut_delta_pp": float((shortcut_accuracy - accuracy) * 100),
         "confusion_matrix": matrix,
-        "classification_report": (
-            report_df
-        ),
-        "feature_importance": (
-            importance_df
-        ),
-        "difficulty_metrics": (
-            difficulty_metrics
-        ),
-        "train_rows": int(
-            len(train_index)
-        ),
-        "test_rows": int(
-            len(test_index)
-        ),
-        "train_cases": (
-            train_case_count
-        ),
-        "test_cases": (
-            test_case_count
-        ),
-        "case_count": int(
-            case_count
-        ),
-        "dataset_seed": int(
-            dataset_seed
-        ),
-        "training_scope": str(
-            training_scope
-        ),
+        "classification_report": report_df,
+        "feature_importance": importance_df,
+        "difficulty_metrics": difficulty_metrics,
+        "start_condition_metrics": start_condition_metrics,
+        "unknown_metrics": unknown_metrics,
+        "unknown_overall": unknown_overall,
+        "abnormal_threshold": float(AI_ABNORMAL_THRESHOLD),
+        "confidence_threshold": confidence_threshold,
+        "margin_threshold": margin_threshold,
+        "train_rows": int(len(train_index)),
+        "test_rows": int(len(test_index)),
+        "train_cases": train_case_count,
+        "test_cases": test_case_count,
+        "case_count": int(case_count),
+        "dataset_seed": int(dataset_seed),
+        "training_scope": str(training_scope),
     }
-
 
 def ai_diagnose_current_case(
     ai_bundle,
     summary,
     material,
-    difficulty,
+    difficulty=None,
 ):
-    if (
-        ai_bundle is None
-        or summary.empty
-    ):
+    if ai_bundle is None or summary.empty:
         return None
 
     features = build_ai_features(
         summary=summary,
         material=material,
-        difficulty=difficulty,
     )
-
     model = ai_bundle["model"]
-    probability = model.predict_proba(
-        features[
-            AI_FEATURE_COLUMNS
-        ]
-    )
-
+    probability = model.predict_proba(features[AI_FEATURE_COLUMNS])
     probability_df = pd.DataFrame(
         probability,
-        columns=list(
-            model.classes_
-        ),
+        columns=list(model.classes_),
     )
 
     normal_probability = (
         probability_df["normal"]
-        if "normal"
-        in probability_df.columns
-        else pd.Series(
-            np.zeros(
-                len(features)
-            )
-        )
+        if "normal" in probability_df.columns
+        else pd.Series(np.zeros(len(features)))
     )
-
-    abnormal_probability = (
-        1.0
-        - normal_probability
-    )
-
+    abnormal_probability = 1.0 - normal_probability
     cause_columns = [
-        cause
-        for cause in CAUSES
-        if cause
-        in probability_df.columns
+        cause for cause in CAUSES
+        if cause in probability_df.columns
     ]
+    threshold = ai_bundle.get("abnormal_threshold", AI_ABNORMAL_THRESHOLD)
 
     lot_predictions = []
-
-    for index, row in summary.reset_index(
-        drop=True
-    ).iterrows():
-        cause_probabilities = (
-            probability_df.loc[
-                index,
-                cause_columns,
-            ]
-        )
-
+    for index, row in summary.reset_index(drop=True).iterrows():
         ranked_causes = (
-            cause_probabilities
-            .sort_values(
-                ascending=False
-            )
+            probability_df.loc[index, cause_columns]
+            .sort_values(ascending=False)
         )
-
-        predicted_cause_key = str(
-            ranked_causes.index[0]
-        )
-        predicted_cause_probability = float(
-            ranked_causes.iloc[0]
-        )
-        abnormal_prob = float(
-            abnormal_probability.iloc[
-                index
-            ]
-        )
-
-        threshold = DIFFICULTIES[
-            difficulty
-        ]["ai_threshold"]
-
-        predicted_state = (
-            predicted_cause_key
-            if abnormal_prob
-            >= threshold
-            else "normal"
-        )
-
+        predicted_key = str(ranked_causes.index[0])
+        abnormal_prob = float(abnormal_probability.iloc[index])
+        predicted_state = predicted_key if abnormal_prob >= threshold else "normal"
         lot_predictions.append({
             "Lot": int(row["lot"]),
-            "AI 판정": AI_LABELS[
-                predicted_state
-            ],
+            "AI 판정": AI_LABELS[predicted_state],
             "이상 확률": abnormal_prob,
-            "1순위 원인": CAUSES[
-                predicted_cause_key
-            ],
-            "1순위 확률": (
-                predicted_cause_probability
-            ),
+            "1순위 원인": CAUSES[predicted_key],
+            "1순위 확률": float(ranked_causes.iloc[0]),
             "2순위 원인": (
-                CAUSES[
-                    str(
-                        ranked_causes.index[1]
-                    )
-                ]
-                if len(
-                    ranked_causes
-                ) > 1
+                CAUSES[str(ranked_causes.index[1])]
+                if len(ranked_causes) > 1
                 else ""
             ),
             "2순위 확률": (
-                float(
-                    ranked_causes.iloc[1]
-                )
-                if len(
-                    ranked_causes
-                ) > 1
+                float(ranked_causes.iloc[1])
+                if len(ranked_causes) > 1
                 else 0.0
             ),
         })
 
-    prediction_table = pd.DataFrame(
-        lot_predictions
-    )
-
-    threshold = DIFFICULTIES[
-        difficulty
-    ]["ai_threshold"]
-
+    prediction_table = pd.DataFrame(lot_predictions)
     first_fault_index = None
-
-    for index in range(
-        len(prediction_table)
-    ):
-        current_probability = float(
-            prediction_table.loc[
-                index,
-                "이상 확률",
-            ]
+    for index in range(len(prediction_table)):
+        current = float(prediction_table.loc[index, "이상 확률"])
+        next_value = (
+            float(prediction_table.loc[index + 1, "이상 확률"])
+            if index + 1 < len(prediction_table)
+            else current
         )
-
-        next_probability = (
-            float(
-                prediction_table.loc[
-                    index + 1,
-                    "이상 확률",
-                ]
-            )
-            if index + 1
-            < len(prediction_table)
-            else current_probability
-        )
-
         if (
-            current_probability
-            >= threshold
+            current >= threshold
             and (
-                next_probability
-                >= threshold
-                - 0.05
-                or current_probability
-                >= threshold
-                + 0.15
+                next_value >= threshold - 0.05
+                or current >= threshold + 0.15
             )
         ):
             first_fault_index = index
@@ -3100,125 +2886,69 @@ def ai_diagnose_current_case(
         return {
             "fault_lot": None,
             "cause_key": None,
-            "cause_label": "원인을 특정하기 어려움",
-            "confidence": float(
-                abnormal_probability.max()
-            ),
-            "confidence_label": (
-                "낮음"
-            ),
+            "cause_label": "이상 시점과 원인을 특정하기 어려움",
+            "confidence": float(abnormal_probability.max()),
+            "confidence_label": "낮음",
             "top_causes": [],
             "composite_possible": False,
-            "prediction_table": (
-                prediction_table
-            ),
+            "abstained": True,
+            "prediction_table": prediction_table,
         }
 
-    fault_lot = int(
-        prediction_table.loc[
-            first_fault_index,
-            "Lot",
-        ]
+    fault_lot = int(prediction_table.loc[first_fault_index, "Lot"])
+    aggregate_probability = probability_df.loc[
+        first_fault_index:,
+        cause_columns,
+    ].mean()
+    ranked = aggregate_probability.sort_values(ascending=False)
+    top_causes = [
+        {
+            "cause_key": str(cause_key),
+            "cause_label": CAUSES[str(cause_key)],
+            "probability": float(value),
+        }
+        for cause_key, value in ranked.iloc[:2].items()
+    ]
+    top_probability = top_causes[0]["probability"] if top_causes else 0.0
+    second_probability = top_causes[1]["probability"] if len(top_causes) > 1 else 0.0
+    margin = top_probability - second_probability
+    confidence_threshold = ai_bundle.get("confidence_threshold", 0.55)
+    margin_threshold = ai_bundle.get("margin_threshold", 0.10)
+    abstained = (
+        top_probability < confidence_threshold
+        or margin < margin_threshold
     )
 
-    aggregate_probability = (
-        probability_df.loc[
-            first_fault_index:,
-            cause_columns,
-        ].mean()
-    )
-
-    ranked_aggregate = (
-        aggregate_probability
-        .sort_values(
-            ascending=False
-        )
-    )
-
-    top_causes = []
-
-    for cause_key, probability_value in (
-        ranked_aggregate.iloc[:2].items()
-    ):
-        top_causes.append({
-            "cause_key": str(
-                cause_key
-            ),
-            "cause_label": CAUSES[
-                str(cause_key)
-            ],
-            "probability": float(
-                probability_value
-            ),
-        })
-
-    top_probability = (
-        top_causes[0][
-            "probability"
-        ]
-        if top_causes
-        else 0.0
-    )
-    second_probability = (
-        top_causes[1][
-            "probability"
-        ]
-        if len(top_causes) > 1
-        else 0.0
-    )
-    probability_gap = (
-        top_probability
-        - second_probability
-    )
-
-    if (
-        top_probability >= 0.75
-        and probability_gap >= 0.20
-    ):
-        confidence_label = "높음"
-    elif top_probability >= 0.50:
-        confidence_label = "보통"
-    else:
+    if abstained:
         confidence_label = "낮음"
+        cause_key = None
+        cause_label = "원인을 특정하기 어려움"
+    elif top_probability >= max(0.75, confidence_threshold + 0.15) and margin >= 0.20:
+        confidence_label = "높음"
+        cause_key = top_causes[0]["cause_key"]
+        cause_label = top_causes[0]["cause_label"]
+    else:
+        confidence_label = "보통"
+        cause_key = top_causes[0]["cause_key"]
+        cause_label = top_causes[0]["cause_label"]
 
     composite_possible = (
         second_probability >= 0.25
-        and probability_gap <= 0.25
-    )
-
-    cause_label = (
-        top_causes[0][
-            "cause_label"
-        ]
-        if top_causes
-        else "원인을 특정하기 어려움"
+        and margin <= 0.25
     )
 
     return {
         "fault_lot": fault_lot,
-        "cause_key": (
-            top_causes[0][
-                "cause_key"
-            ]
-            if top_causes
-            else None
-        ),
+        "cause_key": cause_key,
         "cause_label": cause_label,
-        "confidence": (
-            top_probability
-        ),
-        "confidence_label": (
-            confidence_label
-        ),
+        "confidence": top_probability,
+        "confidence_label": confidence_label,
         "top_causes": top_causes,
-        "composite_possible": (
-            composite_possible
-        ),
-        "prediction_table": (
-            prediction_table
-        ),
+        "composite_possible": composite_possible,
+        "abstained": abstained,
+        "probability_margin": margin,
+        "prediction_table": prediction_table,
     }
-
 
 def automatic_abnormal_lot(summary):
     if len(summary) < 3:
@@ -3448,61 +3178,62 @@ def build_ai_signal_summary(
 
 
 def render_ai_model_details(ai_bundle):
-    """AI 모델의 세부 성능을 개발 정보 영역에 표시합니다."""
+    """AI 모델의 세부 성능과 실패 조건을 표시합니다."""
     if ai_bundle is None:
         st.info(
-            "아직 준비된 AI 모델이 없습니다. "
-            "첫 진단을 제출하면 기본 모델이 자동으로 준비됩니다."
+            "아직 준비된 AI 모델이 없습니다. 첫 진단을 제출하면 기본 모델이 자동으로 준비됩니다."
         )
         return
 
     model_col1, model_col2, model_col3, model_col4 = st.columns(4)
-    model_col1.metric(
-        "학습용 문제",
-        f"{ai_bundle['case_count']:,}개",
-    )
-    model_col2.metric(
-        "평가 정확도",
-        f"{ai_bundle['accuracy'] * 100:.1f}%",
-    )
-    model_col3.metric(
-        "평균 F1 점수",
-        f"{ai_bundle['macro_f1']:.3f}",
-    )
-    model_col4.metric(
-        "평가에 사용한 문제",
-        f"{ai_bundle['test_cases']:,}개",
-    )
+    model_col1.metric("학습용 문제", f"{ai_bundle['case_count']:,}개")
+    model_col2.metric("난이도 정보 제거 후 정확도", f"{ai_bundle['accuracy'] * 100:.1f}%")
+    model_col3.metric("평균 F1 점수", f"{ai_bundle['macro_f1']:.3f}")
+    model_col4.metric("평가에 사용한 문제", f"{ai_bundle['test_cases']:,}개")
+
+    st.markdown("##### 실제로 사용할 수 없는 난이도 정보 제거 실험")
+    ablation_df = pd.DataFrame([
+        {
+            "모델": "난이도 정보를 입력한 비교 모델",
+            "평가 정확도 (%)": ai_bundle["shortcut_accuracy"] * 100,
+            "평균 F1 점수": ai_bundle["shortcut_macro_f1"],
+            "실제 진단에 사용": "아니요",
+        },
+        {
+            "모델": "난이도 정보를 제거한 현재 모델",
+            "평가 정확도 (%)": ai_bundle["accuracy"] * 100,
+            "평균 F1 점수": ai_bundle["macro_f1"],
+            "실제 진단에 사용": "예",
+        },
+    ])
+    ablation_df["평가 정확도 (%)"] = ablation_df["평가 정확도 (%)"].round(1)
+    ablation_df["평균 F1 점수"] = ablation_df["평균 F1 점수"].round(3)
+    st.dataframe(ablation_df, hide_index=True, width="stretch")
+    delta = ai_bundle["shortcut_delta_pp"]
+    if delta >= 0:
+        st.caption(
+            f"난이도 정보를 넣었을 때 정확도가 {delta:.1f}%p 높았습니다. "
+            "현재 모델은 실제 공정에서 알 수 없는 난이도 정보를 입력하지 않습니다."
+        )
+    else:
+        st.caption(
+            f"난이도 정보를 제거한 모델이 비교 모델보다 {-delta:.1f}%p 높았습니다. "
+            "난이도 라벨은 현재 진단 모델의 입력에서 제외했습니다."
+        )
 
     detail_col1, detail_col2 = st.columns(2)
-
     with detail_col1:
         st.markdown("##### 실제 원인과 AI 예측 비교")
-
         matrix = ai_bundle["confusion_matrix"]
         confusion_rows = []
-
-        for actual_index, actual_key in enumerate(
-            AI_CLASS_ORDER
-        ):
-            for predicted_index, predicted_key in enumerate(
-                AI_CLASS_ORDER
-            ):
+        for actual_index, actual_key in enumerate(AI_CLASS_ORDER):
+            for predicted_index, predicted_key in enumerate(AI_CLASS_ORDER):
                 confusion_rows.append({
                     "실제 발생 조건": AI_LABELS[actual_key],
                     "AI 예측": AI_LABELS[predicted_key],
-                    "건수": int(
-                        matrix[
-                            actual_index,
-                            predicted_index,
-                        ]
-                    ),
+                    "건수": int(matrix[actual_index, predicted_index]),
                 })
-
-        confusion_df = pd.DataFrame(
-            confusion_rows
-        )
-
+        confusion_df = pd.DataFrame(confusion_rows)
         heatmap = (
             alt.Chart(confusion_df)
             .mark_rect()
@@ -3510,49 +3241,29 @@ def render_ai_model_details(ai_bundle):
                 x=alt.X(
                     "AI 예측:N",
                     title="AI 예측",
-                    sort=[
-                        AI_LABELS[key]
-                        for key in AI_CLASS_ORDER
-                    ],
+                    sort=[AI_LABELS[key] for key in AI_CLASS_ORDER],
                 ),
                 y=alt.Y(
                     "실제 발생 조건:N",
                     title="실제 발생 조건",
-                    sort=[
-                        AI_LABELS[key]
-                        for key in AI_CLASS_ORDER
-                    ],
+                    sort=[AI_LABELS[key] for key in AI_CLASS_ORDER],
                 ),
-                color=alt.Color(
-                    "건수:Q",
-                    title="건수",
-                ),
-                tooltip=[
-                    "실제 발생 조건:N",
-                    "AI 예측:N",
-                    "건수:Q",
-                ],
+                color=alt.Color("건수:Q", title="건수"),
+                tooltip=["실제 발생 조건:N", "AI 예측:N", "건수:Q"],
             )
             .properties(height=300)
         )
-
         heatmap_text = (
             alt.Chart(confusion_df)
             .mark_text()
             .encode(
                 x=alt.X(
                     "AI 예측:N",
-                    sort=[
-                        AI_LABELS[key]
-                        for key in AI_CLASS_ORDER
-                    ],
+                    sort=[AI_LABELS[key] for key in AI_CLASS_ORDER],
                 ),
                 y=alt.Y(
                     "실제 발생 조건:N",
-                    sort=[
-                        AI_LABELS[key]
-                        for key in AI_CLASS_ORDER
-                    ],
+                    sort=[AI_LABELS[key] for key in AI_CLASS_ORDER],
                 ),
                 text="건수:Q",
                 color=alt.condition(
@@ -3562,83 +3273,89 @@ def render_ai_model_details(ai_bundle):
                 ),
             )
         )
-
-        st.altair_chart(
-            heatmap + heatmap_text,
-            width="stretch",
-        )
+        st.altair_chart(heatmap + heatmap_text, width="stretch")
 
     with detail_col2:
         st.markdown("##### AI가 중요하게 본 변수")
-
         top_importance = (
-            ai_bundle[
-                "feature_importance"
-            ]
+            ai_bundle["feature_importance"]
             .head(12)
-            .sort_values(
-                "importance",
-                ascending=True,
-            )
+            .sort_values("importance", ascending=True)
         )
-
         importance_chart = (
             alt.Chart(top_importance)
             .mark_bar()
             .encode(
-                x=alt.X(
-                    "importance:Q",
-                    title="중요도",
-                ),
-                y=alt.Y(
-                    "feature_label:N",
-                    title=None,
-                    sort=None,
-                ),
+                x=alt.X("importance:Q", title="중요도"),
+                y=alt.Y("feature_label:N", title=None, sort=None),
                 tooltip=[
-                    alt.Tooltip(
-                        "feature_label:N",
-                        title="변수",
-                    ),
-                    alt.Tooltip(
-                        "importance:Q",
-                        title="중요도",
-                        format=".4f",
-                    ),
+                    alt.Tooltip("feature_label:N", title="변수"),
+                    alt.Tooltip("importance:Q", title="중요도", format=".4f"),
                 ],
             )
             .properties(height=300)
         )
+        st.altair_chart(importance_chart, width="stretch")
 
-        st.altair_chart(
-            importance_chart,
-            width="stretch",
-        )
-
-    st.markdown("##### 문제 난이도별 성능")
-
-    difficulty_metrics = (
-        ai_bundle[
-            "difficulty_metrics"
-        ].copy()
+    st.markdown("##### 이상이 처음부터 존재할 때의 성능")
+    start_metrics = ai_bundle["start_condition_metrics"].copy()
+    for column in [
+        "이상 시점 정확 일치",
+        "±1 Lot 이내",
+        "원인 정확도",
+        "원인 판단 유보율",
+        "오탐률",
+    ]:
+        if column in start_metrics.columns:
+            start_metrics[column] = (start_metrics[column] * 100).round(1)
+    st.dataframe(start_metrics, hide_index=True, width="stretch")
+    st.caption(
+        "첫 Lot 또는 두 번째 Lot부터 이상이 시작된 문제에서는 초기 두 Lot 평균이 깨끗한 정상 기준이 아닙니다. "
+        "목표 두께와 Recipe 설정값 대비 편차를 함께 사용해 이 조건을 별도로 평가합니다."
     )
 
+    st.markdown("##### 학습에 없던 원인 시험")
+    unknown_overall = ai_bundle["unknown_overall"]
+    unknown_col1, unknown_col2, unknown_col3 = st.columns(3)
+    unknown_col1.metric(
+        "미지 원인 이상 탐지율",
+        f"{unknown_overall['detection_rate'] * 100:.1f}%",
+    )
+    unknown_col2.metric(
+        "탐지 후 원인 판단 유보율",
+        f"{unknown_overall['abstention_rate_after_detection'] * 100:.1f}%",
+    )
+    unknown_col3.metric(
+        "기존 원인으로 확신한 비율",
+        f"{unknown_overall['false_confident_rate'] * 100:.1f}%",
+    )
+    unknown_metrics = ai_bundle["unknown_metrics"].copy()
+    for column in [
+        "이상 탐지율",
+        "탐지 후 원인 판단 유보율",
+        "기존 원인으로 확신한 비율",
+    ]:
+        unknown_metrics[column] = (unknown_metrics[column] * 100).round(1)
+    st.dataframe(unknown_metrics, hide_index=True, width="stretch")
+    st.caption(
+        "증착 시간 과다, 두께 측정 장비 편향, 기판 온도 이상, 셔터 동작 이상은 학습 클래스에 넣지 않았습니다. "
+        "모델이 모르는 원인에서도 무조건 기존 네 원인 중 하나를 확신하는지 확인하는 별도 시험입니다."
+    )
+
+    st.markdown("##### 문제 난이도별 성능")
+    difficulty_metrics = ai_bundle["difficulty_metrics"].copy()
     percentage_columns = [
         "Lot 분류 정확도",
         "이상 Lot 정확 일치",
         "±1 Lot 이내",
         "원인 정확도",
         "Top-2 원인 적중률",
+        "원인 판단 유보율",
         "정상 문제 오탐률",
     ]
-
     for column in percentage_columns:
         if column in difficulty_metrics.columns:
-            difficulty_metrics[column] = (
-                difficulty_metrics[column]
-                * 100
-            ).round(1)
-
+            difficulty_metrics[column] = (difficulty_metrics[column] * 100).round(1)
     if "Macro F1" in difficulty_metrics.columns:
         difficulty_metrics = difficulty_metrics.rename(
             columns={
@@ -3647,18 +3364,16 @@ def render_ai_model_details(ai_bundle):
                 "Lot 분류 정확도": "Lot 상태 분류 정확도",
             }
         )
-        difficulty_metrics[
-            "평균 F1 점수"
-        ] = difficulty_metrics[
+        difficulty_metrics["평균 F1 점수"] = difficulty_metrics[
             "평균 F1 점수"
         ].round(3)
+    st.dataframe(difficulty_metrics, hide_index=True, width="stretch")
 
-    st.dataframe(
-        difficulty_metrics,
-        hide_index=True,
-        width="stretch",
+    st.caption(
+        f"원인 판단 유보 기준: 1순위 확률 {ai_bundle['confidence_threshold']:.2f} 이상, "
+        f"1·2순위 확률 차이 {ai_bundle['margin_threshold']:.2f} 이상. "
+        "이 기준은 미사용 평가 데이터에서 보정했습니다."
     )
-
 
 ensure_state()
 
@@ -3684,6 +3399,7 @@ with top_info_col1:
     ):
         st.markdown(
             """
+            - **v2.3.0**: 난이도 입력 변수 제거, 초기 이상 학습, 미지 원인 시험, 두께 상승·하락 이상 추가
             - **v2.2.0**: 사용 방법 추가, 화면 순서 개편, 전체 한글 표현 개선, AI 결과를 진단 제출 후 공개
             - **v2.1.0**: 문제 난이도 선택, 센서 편향·일시적 변동·부분 웨이퍼·복합 이상 추가
             - **v2.0.0**: 합성 학습 데이터 생성과 Random Forest 기반 AI 진단 추가
@@ -3718,8 +3434,8 @@ with st.container(border=True):
         """
         1. **증착 재료와 문제 난이도**를 선택합니다.
         2. **새 문제 시작**을 눌러 선택한 조건을 적용합니다.
-        3. **다음 Lot 생산**을 두 번 눌러 정상 상태의 기준 데이터를 확보합니다.
-        4. **이상 발생**을 눌러 문제 상황을 시작합니다.
+        3. 정상 기준이 있는 문제를 풀려면 Lot을 2개 생산한 뒤 **이상 발생**을 누릅니다.
+        4. 첫 Lot부터 이상일 수 있는 문제를 시험하려면 Lot 생산 전에 **이상 발생**을 누릅니다.
         5. Lot을 추가로 생산하면서 그래프와 표의 변화를 분석합니다.
         6. 이상이 처음 나타난 Lot, 추정 원인, 판단 근거와 대응 방안을 작성합니다.
         7. **진단 제출하고 결과 확인**을 누르면 사용자 진단, AI 진단, 통계 기준과 실제 발생 조건을 비교할 수 있습니다.
@@ -3972,8 +3688,8 @@ with button_col3:
 
 if st.session_state.cause_key is None:
     st.info(
-        "정상 Lot을 2개 생산한 뒤 '이상 발생'을 누르세요. "
-        "그다음 Lot을 추가로 생산하며 변화를 분석합니다."
+        "정상 기준이 필요하면 Lot을 2개 생산한 뒤 '이상 발생'을 누르세요. "
+        "첫 Lot부터 이상인 조건을 시험하려면 Lot 생산 전에 '이상 발생'을 누르세요."
     )
 else:
     st.info(
@@ -4626,8 +4342,7 @@ if submit_diagnosis:
         is None
     ):
         errors.append(
-            "먼저 정상 Lot을 2개 생산한 뒤 "
-            "'이상 발생'을 눌러주세요."
+            "먼저 '이상 발생'을 눌러 문제 상황을 설정해주세요."
         )
 
     if (
@@ -4855,6 +4570,15 @@ if submit_diagnosis:
                 is not None
                 else False
             ),
+            "ai_abstained": (
+                ai_diagnosis.get(
+                    "abstained",
+                    False,
+                )
+                if ai_diagnosis
+                is not None
+                else True
+            ),
             "ai_prediction_table": (
                 ai_diagnosis[
                     "prediction_table"
@@ -4907,23 +4631,20 @@ else:
         [],
     )
 
-    ai_primary = (
-        ai_top_causes[0][
-            "cause_label"
-        ]
-        if ai_top_causes
-        else result.get(
-            "ai_cause",
-            "원인을 특정하기 어려움",
+    if result.get("ai_abstained", False):
+        ai_primary = "원인을 특정하기 어려움"
+        ai_secondary = "-"
+    else:
+        ai_primary = (
+            ai_top_causes[0]["cause_label"]
+            if ai_top_causes
+            else result.get("ai_cause", "원인을 특정하기 어려움")
         )
-    )
-    ai_secondary = (
-        ai_top_causes[1][
-            "cause_label"
-        ]
-        if len(ai_top_causes) > 1
-        else "없음"
-    )
+        ai_secondary = (
+            ai_top_causes[1]["cause_label"]
+            if len(ai_top_causes) > 1
+            else "없음"
+        )
 
     comparison_df = pd.DataFrame(
         [
@@ -5076,6 +4797,12 @@ else:
         st.markdown(
             "#### AI 분석 결과"
         )
+
+        if result.get("ai_abstained", False):
+            st.warning(
+                "AI가 이상 가능성은 감지했지만 원인을 하나로 특정할 만큼 확신하지 못했습니다. "
+                "아래 확률은 참고 후보이며 최종 원인 판정이 아닙니다."
+            )
 
         if ai_top_causes:
             first_cause = (
@@ -5384,10 +5111,11 @@ with st.expander(
         """
         이 앱의 AI는 **힌트 제공용이 아니라 사용자와 별도로 데이터를 분석하는 비교 대상**입니다.
 
-        - AI는 프로그램이 자동으로 생성한 여러 공정 문제를 학습합니다.
+        - AI는 프로그램이 자동으로 생성한 여러 공정 문제를 학습하며, 문제 난이도는 입력 변수로 사용하지 않습니다.
         - 사용자가 진단을 제출하기 전에는 AI 결과를 표시하지 않습니다.
         - 진단 제출 후 사용자 판단, AI 판단, 통계 기준과 실제 발생 조건을 함께 비교합니다.
         - AI가 표시하는 주요 변화는 예측 시점의 두께, 공정 변수, 증착률, 균일도와 예상 면저항 변화입니다.
+        - 첫 Lot부터 이상인 문제와 학습에 없던 원인을 별도 평가해 모델이 언제 틀리거나 판단을 유보하는지 확인합니다.
         - AI 성능은 합성 데이터에 대한 평가 결과이며 실제 생산 라인의 진단 성능을 의미하지 않습니다.
         """
     )
@@ -5398,7 +5126,8 @@ with st.expander(
 ):
     st.caption(
         "일반 사용자는 이 설정을 조작하지 않아도 됩니다. "
-        "첫 진단을 제출하면 1,000개의 혼합 난이도 문제로 학습한 기본 모델이 자동으로 준비됩니다."
+        "첫 진단을 제출하면 1,000개의 혼합 난이도 문제로 학습한 기본 모델이 자동으로 준비됩니다. "
+        "난이도는 성능 구분에만 사용하고 AI 입력에는 넣지 않습니다."
     )
 
     ai_setting_col1, ai_setting_col2, ai_setting_col3, ai_setting_col4 = (
