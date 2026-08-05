@@ -191,7 +191,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v2.4.2"
+APP_VERSION = "v2.4.3"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -3670,6 +3670,7 @@ with top_info_col1:
     ):
         st.markdown(
             """
+            - **v2.4.3**: 진단 서술형 답변의 최소 글자 수 제한 제거, 짧은 예시 문구와 입력창 높이 조정
             - **v2.4.2**: 모바일 현황판 2×2 압축, 데이터 분석 영역에 Lot 생산 버튼 추가, 문제 번호와 표 명칭·열 이름 한글화
             - **v2.4.1**: 새 문제와 동일 문제 다시 시작 기능 분리, 쉬움·보통 이상 시작 범위 확대, 상승·하락 방향 균형화
             - **v2.4.0**: 이상 발생 버튼 제거, 새 문제 시작 시 이상 조건 자동 설정, 난이도별 초기 Lot 안내 유지, 결과 비교 화면 단순화
@@ -4655,6 +4656,7 @@ st.caption(
         if reference_lots_guaranteed
         else "초기 정상 Lot이 보장되지 않으므로 목표 두께, 관리 범위와 공정 설정값을 기준으로 분석하세요. "
     )
+    + "서술형 답변은 짧게 작성해도 됩니다. "
     + "AI 분석과 실제 발생 조건은 제출 전에는 공개되지 않습니다."
 )
 
@@ -4701,20 +4703,18 @@ with st.form(
     evidence = st.text_area(
         "판단 근거",
         placeholder=(
-            "예: Lot 5부터 실제 챔버 압력이 상승했고, "
-            "증착률과 평균 두께는 감소했으며 균일도 지표가 악화되었습니다."
+            "예: Lot 5부터 두께 하락"
         ),
-        height=110,
+        height=82,
     )
 
     additional_check = (
         st.text_area(
             "추가로 확인할 항목",
             placeholder=(
-                "예: 압력 센서 교정 이력, 압력 제어 밸브 로그, "
-                "진공 펌프 상태"
+                "예: 전원 출력 로그"
             ),
-            height=90,
+            height=72,
         )
     )
 
@@ -4722,10 +4722,9 @@ with st.form(
         st.text_area(
             "대응 방안",
             placeholder=(
-                "예: 장비 가동을 중지하고 압력 제어 계통을 점검한 뒤, "
-                "모니터 웨이퍼로 공정 상태를 다시 확인합니다."
+                "예: 전원 계통 점검"
             ),
-            height=90,
+            height=72,
         )
     )
 
@@ -4758,25 +4757,19 @@ if submit_diagnosis:
             "Lot을 더 생산하세요."
         )
 
-    if len(
-        evidence.strip()
-    ) < 30:
+    if not evidence.strip():
         errors.append(
-            "판단 근거를 30자 이상 작성하세요."
+            "판단 근거를 입력하세요."
         )
 
-    if len(
-        additional_check.strip()
-    ) < 15:
+    if not additional_check.strip():
         errors.append(
-            "추가로 확인할 항목을 15자 이상 작성하세요."
+            "추가로 확인할 항목을 입력하세요."
         )
 
-    if len(
-        corrective_action.strip()
-    ) < 15:
+    if not corrective_action.strip():
         errors.append(
-            "대응 방안을 15자 이상 작성하세요."
+            "대응 방안을 입력하세요."
         )
 
     if errors:
