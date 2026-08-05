@@ -80,7 +80,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v2.3.2"
+APP_VERSION = "v2.4.0"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -1510,38 +1510,115 @@ def lot_measurements_to_summary(
 
 
 def initialize_case(
-    material="Al",
-    difficulty="normal",
+    material=None,
+    difficulty=None,
     seed=None,
 ):
-    if seed is None:
-        seed = random.SystemRandom().randint(
-            1,
-            999_999_999,
+    selected_material = (
+        material
+        if material is not None
+        else st.session_state.get(
+            "active_material",
+            "Al",
         )
-
-    st.session_state.active_material = material
-    st.session_state.active_difficulty = (
-        difficulty
     )
-    st.session_state.case_seed = int(seed)
+    selected_difficulty = (
+        difficulty
+        if difficulty is not None
+        else st.session_state.get(
+            "active_difficulty",
+            "easy",
+        )
+    )
+    selected_seed = int(
+        seed
+        if seed is not None
+        else st.session_state.get(
+            "case_seed",
+            20260805,
+        )
+    )
+
+    st.session_state.active_material = (
+        selected_material
+    )
+    st.session_state.active_difficulty = (
+        selected_difficulty
+    )
+    st.session_state.case_seed = (
+        selected_seed
+    )
     st.session_state.rng = (
         np.random.default_rng(
-            int(seed)
+            selected_seed
         )
     )
     st.session_state.current_lot = 0
-    st.session_state.cause_key = None
-    st.session_state.secondary_cause_key = (
-        None
+    st.session_state.raw_data = (
+        pd.DataFrame()
     )
-    st.session_state.fault_start_lot = None
-    st.session_state.case_profile = None
-    st.session_state.raw_data = empty_raw()
     st.session_state.last_result = None
     st.session_state.case_ready = True
 
+    rng = st.session_state.rng
 
+    if has_guaranteed_reference_lots(
+        selected_difficulty
+    ):
+        fault_start_lot = int(
+            rng.integers(
+                3,
+                6,
+            )
+        )
+        event_min_lot = 3
+    else:
+        fault_start_lot = int(
+            rng.integers(
+                1,
+                6,
+            )
+        )
+        event_min_lot = 1
+
+    event_max_lot = max(
+        fault_start_lot + 8,
+        10,
+    )
+
+    profile = build_case_profile(
+        rng=rng,
+        difficulty=selected_difficulty,
+        fault_start_lot=fault_start_lot,
+        event_min_lot=event_min_lot,
+        event_max_lot=event_max_lot,
+        has_fault=True,
+    )
+
+    st.session_state.case_profile = (
+        profile
+    )
+    st.session_state.cause_key = (
+        profile[
+            "primary_cause"
+        ]
+    )
+    st.session_state.secondary_cause_key = (
+        profile[
+            "secondary_cause"
+        ]
+    )
+    st.session_state.fault_start_lot = (
+        profile[
+            "fault_start_lot"
+        ]
+    )
+
+    if has_guaranteed_reference_lots(
+        selected_difficulty
+    ):
+        for _ in range(2):
+            produce_lot()
 
 def ensure_state():
     if "history" not in st.session_state:
@@ -1617,67 +1694,6 @@ def summarize(df):
 
     return summary[SUMMARY_COLUMNS]
 
-
-def inject_fault():
-    if st.session_state.cause_key is not None:
-        return (
-            False,
-            "현재 문제에는 이미 이상 상황이 적용되어 있습니다.",
-        )
-
-    rng = st.session_state.rng
-    difficulty = st.session_state.active_difficulty
-    current_lot = st.session_state.current_lot
-
-    if (
-        has_guaranteed_reference_lots(difficulty)
-        and current_lot < 2
-    ):
-        remaining_lots = 2 - current_lot
-        return (
-            False,
-            "쉬움·보통 난이도에서는 Lot 1과 Lot 2가 정상 기준 Lot으로 제공됩니다. "
-            f"기준 Lot을 {remaining_lots}개 더 생산한 뒤 이상 상황을 설정해주세요.",
-        )
-
-    fault_start_lot = current_lot + int(rng.integers(1, 3))
-    event_min_lot = current_lot + 1
-    event_max_lot = current_lot + 10
-
-    profile = build_case_profile(
-        rng=rng,
-        difficulty=difficulty,
-        fault_start_lot=fault_start_lot,
-        event_min_lot=event_min_lot,
-        event_max_lot=event_max_lot,
-        has_fault=True,
-    )
-
-    st.session_state.case_profile = profile
-    st.session_state.cause_key = profile["primary_cause"]
-    st.session_state.secondary_cause_key = profile["secondary_cause"]
-    st.session_state.fault_start_lot = profile["fault_start_lot"]
-
-    if has_guaranteed_reference_lots(difficulty):
-        message = (
-            "이상 상황이 설정되었습니다. Lot 1과 Lot 2는 정상 기준 Lot이며, "
-            "이상은 Lot 3 이후부터 나타납니다. 정확한 발생 시점과 원인은 "
-            "진단 결과에서 공개됩니다."
-        )
-    elif current_lot == 0:
-        message = (
-            "이상 상황이 설정되었습니다. 이 난이도에서는 초기 정상 상태가 "
-            "보장되지 않으며 Lot 1 또는 Lot 2부터 이상이 나타날 수 있습니다. "
-            "정확한 발생 시점과 원인은 진단 결과에서 공개됩니다."
-        )
-    else:
-        message = (
-            "이상 상황이 설정되었습니다. 현재 생산 시점 이후 첫 번째 또는 "
-            "두 번째 Lot부터 이상이 나타날 수 있습니다. 정확한 발생 시점과 "
-            "원인은 진단 결과에서 공개됩니다."
-        )
-
-    return True, message
 
 def produce_lot():
     material = (
@@ -3495,6 +3511,7 @@ with top_info_col1:
     ):
         st.markdown(
             """
+            - **v2.4.0**: 이상 발생 버튼 제거, 새 문제 시작 시 이상 조건 자동 설정, 난이도별 초기 Lot 안내 유지, 결과 비교 화면 단순화
             - **v2.3.2**: 쉬움·보통은 Lot 1~2를 정상 기준으로 보장하고, 어려움·전문가는 초기 이상을 허용하도록 문제 규칙과 AI 학습 데이터를 통일
             - **v2.3.1**: 진단 제출 후 실제 발생 조건을 먼저 공개하고, AI 비교는 선택 실행하도록 변경 · AI 설명 생성 오류 수정
             - **v2.3.0**: 난이도 입력 변수 제거, 초기 이상 학습, 미지 원인 시험, 두께 상승·하락 이상 추가
@@ -3531,17 +3548,17 @@ with st.container(border=True):
     st.markdown(
         """
         1. **증착 재료와 문제 난이도**를 선택합니다.
-        2. **새 문제 시작**을 눌러 선택한 조건을 적용합니다.
-        3. **쉬움·보통**에서는 Lot 1과 Lot 2가 정상 기준 Lot입니다. 기준 Lot 2개를 생산한 뒤 **이상 발생**을 누릅니다.
-        4. **어려움·전문가**에서는 초기 정상 상태가 보장되지 않습니다. Lot 1부터 이상일 수 있으므로 첫 Lot 생산 전에 이상 상황을 설정할 수도 있습니다.
-        5. Lot을 추가로 생산하면서 기준값, 그래프와 표의 변화를 분석합니다.
-        6. 이상이 처음 나타난 Lot, 추정 원인, 판단 근거와 대응 방안을 작성합니다.
-        7. **진단 제출하고 결과 확인**을 누르면 사용자 진단과 실제 발생 조건을 먼저 비교합니다. AI 분석은 이후 선택해서 확인할 수 있습니다.
+        2. **새 문제 시작**을 누르면 프로그램이 이상 원인과 시작 Lot을 내부에서 자동으로 정합니다.
+        3. **쉬움·보통**에서는 Lot 1과 Lot 2가 정상 기준 Lot으로 자동 생성되고, 이상은 Lot 3 이후부터 나타날 수 있습니다.
+        4. **어려움·전문가**에서는 초기 정상 상태가 보장되지 않으며 Lot 1부터 이상이 포함될 수 있습니다.
+        5. **다음 Lot 생산**을 누르면서 그래프와 표의 변화를 분석합니다.
+        6. 이상이 처음 나타난 Lot과 원인을 추정하고, 판단 근거와 대응 방안을 작성합니다.
+        7. 진단을 제출하면 사용자 답과 실제 발생 조건을 먼저 비교하고, AI 분석은 원할 때만 확인합니다.
         """
     )
     st.info(
-        "AI 분석 결과는 힌트로 미리 제공되지 않습니다. "
-        "사용자가 진단을 제출한 뒤에만 공개됩니다."
+        "AI는 힌트를 미리 제공하지 않습니다. "
+        "사용자가 진단을 제출한 뒤에만 별도로 확인할 수 있습니다."
     )
 
 # =========================================================
@@ -3711,6 +3728,19 @@ st.caption(
     ]["description"]
 )
 
+if has_guaranteed_reference_lots(
+    active_difficulty
+):
+    st.info(
+        "초기 Lot 안내: Lot 1과 Lot 2는 정상 상태의 기준 Lot입니다. "
+        "이상은 Lot 3 이후부터 나타날 수 있습니다."
+    )
+else:
+    st.warning(
+        "초기 Lot 안내: 초기 Lot이 정상이라는 보장은 없습니다. "
+        "Lot 1부터 이상이 포함될 수 있으므로 목표값과 공정 설정값을 함께 확인하세요."
+    )
+
 # =========================================================
 # 3. 공정 가동
 # =========================================================
@@ -3730,27 +3760,15 @@ seed_input = st.number_input(
     ),
 )
 
-button_col1, button_col2, button_col3 = (
-    st.columns(3)
-)
-
-reference_lot_production_complete = st.session_state.current_lot >= 2
-fault_is_active = st.session_state.cause_key is not None
-production_disabled = (
-    reference_lots_guaranteed
-    and reference_lot_production_complete
-    and not fault_is_active
-)
-fault_button_disabled = (
-    fault_is_active
-    or (
-        reference_lots_guaranteed
-        and not reference_lot_production_complete
-    )
+button_col1, button_col2 = (
+    st.columns(2)
 )
 
 with button_col1:
-    if st.button("새 문제 시작", width="stretch"):
+    if st.button(
+        "새 문제 시작",
+        width="stretch",
+    ):
         initialize_case(
             material=selected_material,
             difficulty=selected_difficulty,
@@ -3763,62 +3781,48 @@ with button_col2:
         "다음 Lot 생산",
         type="primary",
         width="stretch",
-        disabled=production_disabled,
     ):
         new_lot = produce_lot()
-        oos_count = int(((new_lot["thickness_nm"] < LOWER_SPEC) | (new_lot["thickness_nm"] > UPPER_SPEC)).sum())
-        uniformity_fail_count = int((new_lot["uniformity_pct"] > UNIFORMITY_LIMIT).sum())
-        lot_label = (
-            "정상 기준 Lot"
-            if reference_lots_guaranteed and st.session_state.current_lot <= 2
-            else "분석 대상 Lot"
+
+        oos_count = int(
+            (
+                (
+                    new_lot["thickness_nm"]
+                    < LOWER_SPEC
+                )
+                | (
+                    new_lot["thickness_nm"]
+                    > UPPER_SPEC
+                )
+            ).sum()
         )
+
+        uniformity_fail_count = int(
+            (
+                new_lot["uniformity_pct"]
+                > UNIFORMITY_LIMIT
+            ).sum()
+        )
+
         st.success(
-            f"{active_material} Lot {st.session_state.current_lot} 생산 완료 · "
-            f"{lot_label} · 두께 관리 범위 이탈 {oos_count}장 · "
+            f"{active_material} Lot "
+            f"{st.session_state.current_lot} 생산 완료 · "
+            f"두께 관리 범위 이탈 {oos_count}장 · "
             f"균일도 기준 초과 {uniformity_fail_count}장"
         )
 
-with button_col3:
-    if st.button(
-        "이상 발생",
-        width="stretch",
-        disabled=fault_button_disabled,
-    ):
-        success, message = inject_fault()
-        if success:
-            st.success(message)
-        else:
-            st.warning(message)
-
-# 버튼 클릭 뒤 변경된 상태를 다시 읽습니다.
-reference_lot_production_complete = st.session_state.current_lot >= 2
-fault_is_active = st.session_state.cause_key is not None
-
-if not fault_is_active:
-    if reference_lots_guaranteed:
-        if st.session_state.current_lot == 0:
-            st.info("Lot 1과 Lot 2는 정상 기준 Lot입니다. 먼저 기준 Lot 2개를 생산해주세요.")
-        elif st.session_state.current_lot == 1:
-            st.info("Lot 1은 정상 기준 Lot으로 생산되었습니다. Lot 2를 추가로 생산해주세요.")
-        else:
-            st.success("정상 기준 Lot 2개가 준비되었습니다. '이상 발생'을 눌러 문제 상황을 시작해주세요.")
-    else:
-        st.warning(
-            "이 난이도에서는 정상 기준 Lot이 보장되지 않습니다. "
-            "Lot 1부터 이상이 나타날 수 있으며 목표 두께와 Recipe 설정값을 기준으로 분석해야 합니다."
-        )
+if has_guaranteed_reference_lots(
+    active_difficulty
+):
+    st.info(
+        "Lot 1과 Lot 2는 정상 기준 Lot으로 이미 생성되어 있습니다. "
+        "이상은 Lot 3 이후부터 나타날 수 있지만 정확한 시작 시점과 원인은 공개되지 않습니다."
+    )
 else:
-    if reference_lots_guaranteed:
-        st.info(
-            "Lot 1과 Lot 2는 정상 기준 Lot입니다. 이상은 Lot 3 이후부터 나타나며, "
-            "정확한 시작 시점과 원인은 진단 결과에서 공개됩니다."
-        )
-    else:
-        st.info(
-            "초기 정상 상태가 보장되지 않는 문제입니다. Lot 1 또는 Lot 2부터 이상이 나타날 수 있으며, "
-            "정확한 시작 시점과 원인은 진단 결과에서 공개됩니다."
-        )
+    st.warning(
+        "초기 정상 상태가 보장되지 않는 문제입니다. "
+        "Lot 1부터 이상이 포함될 수 있으며 정확한 시작 시점과 원인은 공개되지 않습니다."
+    )
 
 raw_df = (
     st.session_state.raw_data
@@ -4492,7 +4496,7 @@ if submit_diagnosis:
         is None
     ):
         errors.append(
-            "먼저 '이상 발생'을 눌러 문제 상황을 설정해주세요."
+            "새 문제를 다시 시작한 뒤 Lot을 생산해주세요."
         )
 
     if (
@@ -4676,69 +4680,99 @@ else:
         st.session_state.last_result
     )
 
-    user_and_answer_df = pd.DataFrame(
-        [
-            {
-                "구분": "사용자 진단",
-                "이상 시작 Lot": (
-                    result[
-                        "guessed_fault_lot"
-                    ]
-                ),
-                "가장 가능성이 높은 원인": (
-                    result[
-                        "guessed_cause"
-                    ]
-                ),
-                "다음으로 가능한 원인": (
-                    result[
-                        "guessed_secondary_cause"
-                    ]
-                ),
-            },
-            {
-                "구분": "통계 기준",
-                "이상 시작 Lot": (
-                    result[
-                        "auto_detected_lot"
-                    ]
-                    if result[
-                        "auto_detected_lot"
-                    ]
-                    is not None
-                    else "찾지 못함"
-                ),
-                "가장 가능성이 높은 원인": (
-                    "원인 분류 기능 없음"
-                ),
-                "다음으로 가능한 원인": "-",
-            },
-            {
-                "구분": "실제 발생 조건",
-                "이상 시작 Lot": (
-                    result[
-                        "actual_fault_lot"
-                    ]
-                ),
-                "가장 가능성이 높은 원인": (
-                    result[
-                        "actual_cause"
-                    ]
-                ),
-                "다음으로 가능한 원인": (
-                    result[
-                        "actual_secondary_cause"
-                    ]
-                ),
-            },
-        ]
+    comparison_rows = [
+        {
+            "항목": "이상 시작 Lot",
+            "사용자 판단": (
+                f"Lot {result['guessed_fault_lot']}"
+            ),
+            "실제 발생 조건": (
+                f"Lot {result['actual_fault_lot']}"
+            ),
+            "결과": (
+                "일치"
+                if result["lot_correct"]
+                else (
+                    f"{abs(result['guessed_fault_lot'] - result['actual_fault_lot'])}개 Lot "
+                    + (
+                        "늦게 판단"
+                        if result["guessed_fault_lot"] > result["actual_fault_lot"]
+                        else "빠르게 판단"
+                    )
+                )
+            ),
+        },
+        {
+            "항목": "주요 원인",
+            "사용자 판단": (
+                result["guessed_cause"]
+            ),
+            "실제 발생 조건": (
+                result["actual_cause"]
+            ),
+            "결과": (
+                "일치"
+                if result["cause_correct"]
+                else "불일치"
+            ),
+        },
+        {
+            "항목": "추가 원인",
+            "사용자 판단": (
+                result["guessed_secondary_cause"]
+            ),
+            "실제 발생 조건": (
+                result["actual_secondary_cause"]
+            ),
+            "결과": (
+                "일치"
+                if result["secondary_correct"]
+                else "불일치"
+            ),
+        },
+    ]
+
+    comparison_df = pd.DataFrame(
+        comparison_rows
     )
 
+    st.markdown("#### 사용자 진단과 실제 발생 조건")
     st.dataframe(
-        user_and_answer_df,
+        comparison_df,
         hide_index=True,
         width="stretch",
     )
+
+    if result["auto_detected_lot"] is None:
+        st.info(
+            "통계 기준은 이상 시작 시점을 찾지 못했습니다."
+        )
+    else:
+        statistical_gap = (
+            int(result["auto_detected_lot"])
+            - int(result["actual_fault_lot"])
+        )
+
+        if statistical_gap == 0:
+            statistical_message = (
+                f"통계 기준도 실제와 같은 Lot {result['actual_fault_lot']}을 "
+                "처음 이상으로 판단했습니다."
+            )
+        elif statistical_gap > 0:
+            statistical_message = (
+                f"통계 기준은 Lot {result['auto_detected_lot']}을 처음 이상으로 판단했습니다. "
+                f"실제 시작 시점보다 {statistical_gap}개 Lot 늦었습니다."
+            )
+        else:
+            statistical_message = (
+                f"통계 기준은 Lot {result['auto_detected_lot']}을 처음 이상으로 판단했습니다. "
+                f"실제 시작 시점보다 {abs(statistical_gap)}개 Lot 빨랐습니다."
+            )
+
+        st.info(
+            "통계 기준 탐지 결과: "
+            + statistical_message
+        )
 
     answer_col1, answer_col2, answer_col3 = (
         st.columns(3)
@@ -5377,6 +5411,22 @@ else:
 # 8. AI 모델 및 프로젝트 정보
 # =========================================================
 st.subheader("8. AI 모델 및 프로젝트 정보")
+
+with st.expander(
+    "프로젝트를 어떻게 설계했는지 확인하기",
+    expanded=False,
+):
+    st.markdown(
+        """
+        1. 실제 반도체 생산 데이터는 개인 프로젝트에서 확보하기 어렵기 때문에 스퍼터 공정의 관계를 단순화한 합성 데이터를 설계했습니다.
+        2. 전원 출력, Ar 유량, 챔버 압력과 타겟 상태 변화가 증착률, 두께, 균일도와 예상 면저항에 영향을 주도록 계산 규칙을 만들었습니다.
+        3. 사용자는 생성된 Lot 데이터를 보고 이상 시작 시점과 원인을 직접 진단합니다.
+        4. 통계 기준은 사람이 정한 관리 범위와 변화 기준으로 이상 시점만 탐지합니다.
+        5. AI는 Random Forest 분류 모델로 정상과 네 가지 이상 원인을 학습하고, 사용자의 진단과 별도로 원인을 예측합니다.
+        6. 난이도 정보는 실제 공정에서 얻을 수 없는 힌트이므로 AI 입력 변수에서 제외하고 평가 구분에만 사용합니다.
+        7. 최종 목적은 높은 정확도 자체가 아니라 초기 이상, 미지 원인과 유사한 공정 신호에서 AI가 언제 왜 틀리는지 확인하는 것입니다.
+        """
+    )
 
 with st.expander(
     "AI가 어떻게 사용되는지 확인하기",
