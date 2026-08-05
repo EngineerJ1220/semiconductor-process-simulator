@@ -80,7 +80,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v2.1.0"
+APP_VERSION = "v2.2.0"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -96,7 +96,7 @@ MATERIALS = {
         "density_g_cm3": 2.70,
         "melting_point_c": 660.3,
         "wear_sensitivity": 0.008,
-        "description": "배선·전극용 금속 박막의 기초 Case",
+        "description": "배선·전극용 금속 박막의 기초 학습 문제",
     },
     "Cu": {
         "name_ko": "구리",
@@ -108,7 +108,7 @@ MATERIALS = {
         "density_g_cm3": 8.96,
         "melting_point_c": 1084.6,
         "wear_sensitivity": 0.009,
-        "description": "낮은 비저항을 갖는 금속 배선 비교 Case",
+        "description": "낮은 비저항을 갖는 금속 배선 비교 문제",
     },
     "Ti": {
         "name_ko": "타이타늄",
@@ -120,7 +120,7 @@ MATERIALS = {
         "density_g_cm3": 4.51,
         "melting_point_c": 1668.0,
         "wear_sensitivity": 0.011,
-        "description": "접착층·배리어층 재료 비교 Case",
+        "description": "접착층·배리어층 재료 비교 문제",
     },
     "Ta": {
         "name_ko": "탄탈럼",
@@ -132,7 +132,7 @@ MATERIALS = {
         "density_g_cm3": 16.69,
         "melting_point_c": 3017.0,
         "wear_sensitivity": 0.013,
-        "description": "배리어층 재료 비교 Case",
+        "description": "배리어층 재료 비교 문제",
     },
 }
 
@@ -149,19 +149,19 @@ CAUSES = {
 
 CAUSE_EXPLANATIONS = {
     "power_drift": (
-        "Actual Power가 Lot 진행에 따라 변하고, "
+        "실제 전원 출력이 Lot 진행에 따라 변하고, "
         "증착률·두께·면저항이 함께 변합니다."
     ),
     "flow_drop": (
-        "Actual Ar Flow와 Pressure가 함께 낮아지고, "
+        "실제 Ar 유량과 챔버 압력이 함께 낮아지고, "
         "증착률과 두께가 감소하면서 면저항이 높아집니다."
     ),
     "pressure_rise": (
-        "Actual Pressure가 상승하면서 증착률과 두께가 감소하고 "
+        "실제 챔버 압력이 상승하면서 증착률과 두께가 감소하고 "
         "균일도와 면저항이 악화됩니다."
     ),
     "target_wear": (
-        "표시되는 주요 제어값은 Setpoint 부근이지만 "
+        "주요 공정 변수는 설정값 부근을 유지하지만 "
         "증착률이 서서히 낮아지고 균일도와 면저항이 악화됩니다."
     ),
 }
@@ -306,9 +306,9 @@ AI_FEATURE_LABELS = {
     "mean_uniformity_pct": "평균 균일도",
     "mean_sheet_resistance_ohm_sq": "예상 면저항",
     "oos_ratio": "두께 이탈 비율",
-    "power_dev_set_pct": "Power Setpoint 편차",
-    "flow_dev_set_pct": "Ar Flow Setpoint 편차",
-    "pressure_dev_set_pct": "Pressure Setpoint 편차",
+    "power_dev_set_pct": "전원 출력 설정값 편차",
+    "flow_dev_set_pct": "Ar 유량 설정값 편차",
+    "pressure_dev_set_pct": "챔버 압력 설정값 편차",
     "rate_dev_set_pct": "증착률 기준 편차",
     "thickness_delta_baseline": "정상 기준 대비 두께 변화",
     "std_delta_baseline": "정상 기준 대비 산포 변화",
@@ -1600,8 +1600,8 @@ def inject_fault():
     ):
         return (
             False,
-            "이번 Case에는 이미 "
-            "이상이 예약되어 있습니다.",
+            "현재 문제에는 이미 "
+            "이상 상황이 적용되어 있습니다.",
         )
 
     rng = st.session_state.rng
@@ -1655,9 +1655,10 @@ def inject_fault():
 
     return (
         True,
-        "랜덤 이상이 예약되었습니다. "
-        "난이도에 따라 노이즈·일시 변동·"
-        "센서 편향·복합 이상이 포함될 수 있습니다.",
+        "이상 상황이 시작되었습니다. "
+        "이상 원인과 발생 시점은 진단 결과를 확인할 때 공개됩니다. "
+        "난이도에 따라 측정 노이즈, 일시적 변동, 센서 편향, "
+        "복합 이상이 포함될 수 있습니다.",
     )
 
 
@@ -2855,10 +2856,10 @@ def train_ai_model(
             "Top-2 원인 적중률": (
                 top_two_accuracy
             ),
-            "정상 Case 오탐률": (
+            "정상 문제 오탐률": (
                 false_alarm_rate
             ),
-            "시험 Case": int(
+            "평가 문제": int(
                 case_frame.shape[0]
             ),
         })
@@ -3099,7 +3100,7 @@ def ai_diagnose_current_case(
         return {
             "fault_lot": None,
             "cause_key": None,
-            "cause_label": "판단 유보",
+            "cause_label": "원인을 특정하기 어려움",
             "confidence": float(
                 abnormal_probability.max()
             ),
@@ -3190,7 +3191,7 @@ def ai_diagnose_current_case(
             "cause_label"
         ]
         if top_causes
-        else "판단 유보"
+        else "원인을 특정하기 어려움"
     )
 
     return {
@@ -3306,841 +3307,179 @@ def csv_bytes(df):
     return df.to_csv(index=False).encode("utf-8-sig")
 
 
-ensure_state()
-
-st.title(
-    "가상 반도체 박막 공정 이상 진단 시뮬레이터"
-)
-st.caption(
-    f"현재 버전 {APP_VERSION} · 최종 업데이트 {LAST_UPDATED} · "
-    "난이도 선택, 현실적 합성 데이터, AI Top-2 진단"
-)
-
-info_col1, info_col2 = st.columns(2)
-
-with info_col1:
-    with st.expander("업데이트 내역", expanded=False):
-        st.markdown(
-            """
-            - **v2.1.0**: 난이도 선택, 신호 중첩·센서 편향·일시 변동·부분 Wafer·복합 이상, 난이도별 AI 평가
-            - **v2.0.0**: 가상 Case 자동 생성, Random Forest 학습, 사람·통계·AI 진단 비교
-            - **v1.2.2**: Lot 증가 시 두께 축 자동 확장, X축 눈금 가로 표시 및 간격 최적화
-            - **v1.2.1**: 본문 최대 폭 제한, 중앙 정렬, 넓은 모니터 레이아웃 개선
-            - **v1.2.0**: 분석 화면 2열 대시보드 구성, 그래프 크기 축소, Raw Data 분리
-            - **v1.1.1**: 공정 변수 그래프 툴팁 명칭 개선, 버전 정보 추가
-            - **v1.1**: Al·Cu·Ti·Ta 선택, 재료별 Recipe, 예상 면저항 기능 추가
-            - **v1.0**: Sputter Lot 생성, 랜덤 이상 주입, 진단 및 정답 비교 기능 구현
-            """
-        )
-
-with info_col2:
-    with st.expander("프로젝트 안내와 모델의 한계", expanded=False):
-        st.markdown(
-            """
-            - 실제 기업 Recipe나 생산 데이터를 사용하지 않은 교육용 합성 데이터 시뮬레이터입니다.
-            - 재료별 증착률과 Recipe는 비교 학습을 위해 단순화한 가정값입니다.
-            - 녹는점과 밀도는 참고 정보이며 Sputter 계산식에 직접 사용하지 않습니다.
-            - 면저항은 재료의 기준 비저항과 생성된 두께를 이용한 추정값이며 실제 측정값이 아닙니다.
-            - 실제 박막 비저항은 결정상, 입도, 불순물, 표면·입계 산란 등에 따라 달라질 수 있습니다.
-            - 어려움·전문가 모드의 복합 이상은 교육용 규칙으로 생성되며 실제 장비 고장 빈도를 의미하지 않습니다.
-            - AI 성능은 이 시뮬레이터가 생성한 미사용 합성 Case에 대한 결과이며 실제 Fab 성능이 아닙니다.
-            """
-        )
-
-material_options = list(
-    MATERIALS.keys()
-)
-difficulty_options = (
-    DIFFICULTY_ORDER
-)
-
-selector_col1, selector_col2 = (
-    st.columns(2)
-)
-
-with selector_col1:
-    selected_material = st.selectbox(
-        "증착 재료 선택",
-        options=material_options,
-        index=material_options.index(
-            st.session_state.active_material
-        ),
-        format_func=lambda symbol: (
-            f"{symbol} · "
-            f"{MATERIALS[symbol]['name_ko']}"
-        ),
-    )
-
-with selector_col2:
-    selected_difficulty = st.selectbox(
-        "Case 난이도",
-        options=difficulty_options,
-        index=difficulty_options.index(
-            st.session_state.active_difficulty
-        ),
-        format_func=lambda key: (
-            f"{DIFFICULTY_LABELS[key]} · "
-            f"{DIFFICULTIES[key]['description']}"
-        ),
-    )
-
-if (
-    selected_material
-    != st.session_state.active_material
-    or selected_difficulty
-    != st.session_state.active_difficulty
+def build_ai_signal_summary(
+    summary,
+    material,
+    detected_lot,
 ):
-    st.warning(
-        "재료 또는 난이도가 변경되었습니다. "
-        "아래의 '새 Case 초기화'를 눌러야 적용됩니다."
-    )
-
-active_material = (
-    st.session_state.active_material
-)
-active_difficulty = (
-    st.session_state.active_difficulty
-)
-material_props = MATERIALS[active_material]
-recipe = get_recipe(active_material)
-
-st.subheader(
-    f"Case 01 · {active_material} 박막 "
-    "DC Magnetron Sputtering · "
-    f"{DIFFICULTY_LABELS[active_difficulty]}"
-)
-
-condition_col, recipe_col, property_col = (
-    st.columns(3)
-)
-
-with condition_col:
-    st.markdown(
-        f"""
-        **생산 조건**
-
-        - 기판: 300 mm Si Wafer
-        - Lot 크기: {WAFERS_PER_LOT}장
-        - 증착막: {active_material}
-        - 난이도: {DIFFICULTY_LABELS[active_difficulty]}
-        - 목표 두께: {TARGET_THICKNESS:.0f} nm
-        - 두께 관리 범위: {LOWER_SPEC:.0f}~{UPPER_SPEC:.0f} nm
-        - 균일도 기준: {UNIFORMITY_LIMIT:.1f}% 이하
-        """
-    )
-
-with recipe_col:
-    st.dataframe(
-        pd.DataFrame({
-            "교육용 Recipe": [
-                "DC Power",
-                "Ar Flow",
-                "Chamber Pressure",
-                "Deposition Time",
-                "기준 증착률",
-            ],
-            "Setpoint": [
-                f"{recipe['power_w']:.0f} W",
-                f"{recipe['ar_flow_sccm']:.0f} sccm",
-                f"{recipe['pressure_mtorr']:.1f} mTorr",
-                f"{recipe['deposition_time_s']:.1f} s",
-                f"{recipe['base_rate_nm_s']:.2f} nm/s",
-            ],
-        }),
-        hide_index=True,
-        use_container_width=True,
-    )
-
-with property_col:
-    st.dataframe(
-        pd.DataFrame({
-            "재료 정보": [
-                "기준 비저항",
-                "밀도",
-                "녹는점",
-                "100 nm 기준 예상 면저항",
-            ],
-            "값": [
-                (
-                    f"{material_props['bulk_resistivity_uohm_cm']}"
-                    " μΩ·cm"
-                ),
-                (
-                    f"{material_props['density_g_cm3']}"
-                    " g/cm³"
-                ),
-                (
-                    f"{material_props['melting_point_c']}"
-                    " °C"
-                ),
-                (
-                    f"{reference_sheet_resistance(active_material):.4f}"
-                    " Ω/□"
-                ),
-            ],
-            "모델 반영": [
-                "면저항 계산",
-                "참고 정보",
-                "참고 정보",
-                "비교 기준",
-            ],
-        }),
-        hide_index=True,
-        use_container_width=True,
-    )
-
-st.caption(
-    material_props["description"]
-    + " · "
-    + DIFFICULTIES[
-        active_difficulty
-    ]["description"]
-)
-st.divider()
-
-seed_input = st.number_input(
-    "재현용 Case Seed",
-    min_value=1,
-    max_value=999_999_999,
-    value=int(st.session_state.case_seed),
-    step=1,
-    help=(
-        "같은 재료·Seed·버튼 순서를 사용하면 "
-        "동일한 Case를 다시 생성할 수 있습니다."
-    ),
-)
-
-button_col1, button_col2, button_col3 = (
-    st.columns(3)
-)
-
-with button_col1:
-    if st.button(
-        "새 Case 초기화",
-        use_container_width=True,
+    """AI 예측과 함께 확인된 주요 데이터 변화를 자연어로 정리합니다."""
+    if (
+        summary.empty
+        or detected_lot is None
     ):
-        initialize_case(
-            material=selected_material,
-            difficulty=selected_difficulty,
-            seed=int(seed_input),
-        )
-        st.rerun()
+        return []
 
-with button_col2:
-    if st.button(
-        "다음 Lot 생산",
-        type="primary",
-        use_container_width=True,
-    ):
-        new_lot = produce_lot()
-
-        oos_count = int(
-            (
-                (new_lot["thickness_nm"] < LOWER_SPEC)
-                | (new_lot["thickness_nm"] > UPPER_SPEC)
-            ).sum()
-        )
-
-        uniformity_fail_count = int(
-            (
-                new_lot["uniformity_pct"]
-                > UNIFORMITY_LIMIT
-            ).sum()
-        )
-
-        st.success(
-            f"{active_material} Lot "
-            f"{st.session_state.current_lot} 생산 완료 · "
-            f"두께 이탈 {oos_count}장 · "
-            f"균일도 초과 {uniformity_fail_count}장"
-        )
-
-with button_col3:
-    if st.button(
-        "랜덤 이상 예약",
-        use_container_width=True,
-    ):
-        success, message = inject_fault()
-
-        if success:
-            st.success(message)
-        else:
-            st.warning(message)
-
-if st.session_state.cause_key is None:
-    st.info(
-        "진행 순서: 정상 Lot 2개 생산 → "
-        "랜덤 이상 예약 → Lot 4~5개 추가 생산 → "
-        "진단 제출"
-    )
-else:
-    st.info(
-        "이상이 예약되어 있습니다. "
-        "원인과 시작 Lot은 숨겨져 있습니다. "
-        "현재 난이도에서는 복합 이상·센서 편향·"
-        "일시 변동이 포함될 수 있습니다."
+    ordered = (
+        summary
+        .sort_values("lot")
+        .reset_index(drop=True)
     )
 
-raw_df = st.session_state.raw_data
-summary_df = summarize(raw_df)
+    baseline = ordered.iloc[
+        : min(2, len(ordered))
+    ].mean(numeric_only=True)
 
-metric_col1, metric_col2, metric_col3, metric_col4, metric_col5 = (
-    st.columns(5)
-)
-
-metric_col1.metric(
-    "현재 재료",
-    active_material,
-)
-metric_col2.metric(
-    "난이도",
-    DIFFICULTY_LABELS[
-        active_difficulty
-    ],
-)
-metric_col3.metric(
-    "누적 생산 Lot",
-    st.session_state.current_lot,
-)
-metric_col4.metric(
-    "누적 Wafer",
-    len(raw_df),
-)
-metric_col5.metric(
-    "Case Seed",
-    st.session_state.case_seed,
-)
-
-if not summary_df.empty:
-    st.subheader("공정 분석 대시보드")
-
-    lot_min = int(summary_df["lot"].min())
-    lot_max = int(summary_df["lot"].max())
-    lot_count = max(lot_max - lot_min + 1, 1)
-    lot_tick_count = min(lot_count, 10)
-
-    lot_axis = alt.Axis(
-        title="Lot",
-        labelAngle=0,
-        tickCount=lot_tick_count,
-        tickMinStep=1,
-        labelOverlap="greedy",
-    )
-
-    thickness_min = min(
-        float(raw_df["thickness_nm"].min()),
-        LOWER_SPEC,
-    )
-    thickness_max = max(
-        float(raw_df["thickness_nm"].max()),
-        UPPER_SPEC,
-    )
-    thickness_span = max(
-        thickness_max - thickness_min,
-        1.0,
-    )
-    thickness_margin = max(
-        thickness_span * 0.08,
-        0.25,
-    )
-    thickness_domain = [
-        thickness_min - thickness_margin,
-        thickness_max + thickness_margin,
+    detected_rows = ordered[
+        ordered["lot"] == detected_lot
     ]
 
-    dashboard_col1, dashboard_col2 = st.columns(2)
+    if detected_rows.empty:
+        detected_row = ordered.iloc[-1]
+    else:
+        detected_row = detected_rows.iloc[0]
 
-    # -----------------------------------------------------
-    # 왼쪽 위: 두께 추이
-    # -----------------------------------------------------
-    with dashboard_col1:
-        st.markdown("#### 1. 두께 추이")
+    recipe = get_recipe(material)
 
-        wafer_points = (
-            alt.Chart(raw_df)
-            .mark_circle(size=48, opacity=0.42)
-            .encode(
-                x=alt.X(
-                    "lot:Q",
-                    axis=lot_axis,
-                    scale=alt.Scale(
-                        domain=[
-                            lot_min - 0.4,
-                            lot_max + 0.4,
-                        ]
-                    ),
-                ),
-                y=alt.Y(
-                    "thickness_nm:Q",
-                    title="Thickness (nm)",
-                    scale=alt.Scale(
-                        domain=thickness_domain,
-                        nice=True,
-                    ),
-                ),
-                tooltip=[
-                    alt.Tooltip(
-                        "lot:Q",
-                        title="Lot",
-                        format=".0f",
-                    ),
-                    alt.Tooltip(
-                        "wafer:Q",
-                        title="Wafer",
-                    ),
-                    alt.Tooltip(
-                        "thickness_nm:Q",
-                        title="두께 (nm)",
-                        format=".2f",
-                    ),
-                ],
-            )
-        )
-
-        lot_mean_line = (
-            alt.Chart(summary_df)
-            .mark_line(point=True, strokeWidth=2.5)
-            .encode(
-                x=alt.X(
-                    "lot:Q",
-                    axis=lot_axis,
-                    scale=alt.Scale(
-                        domain=[
-                            lot_min - 0.4,
-                            lot_max + 0.4,
-                        ]
-                    ),
-                ),
-                y=alt.Y(
-                    "mean_thickness_nm:Q",
-                    title="Thickness (nm)",
-                    scale=alt.Scale(
-                        domain=thickness_domain,
-                        nice=True,
-                    ),
-                ),
-                tooltip=[
-                    alt.Tooltip(
-                        "lot:Q",
-                        title="Lot",
-                        format=".0f",
-                    ),
-                    alt.Tooltip(
-                        "mean_thickness_nm:Q",
-                        title="Lot 평균 (nm)",
-                        format=".3f",
-                    ),
-                ],
-            )
-        )
-
-        thickness_limits = pd.DataFrame({
-            "기준": ["USL", "Target", "LSL"],
-            "두께": [
-                UPPER_SPEC,
-                TARGET_THICKNESS,
-                LOWER_SPEC,
-            ],
-        })
-
-        limit_rules = (
-            alt.Chart(thickness_limits)
-            .mark_rule(strokeDash=[5, 4])
-            .encode(
-                y=alt.Y(
-                    "두께:Q",
-                    title="Thickness (nm)",
-                ),
-                strokeDash=alt.StrokeDash(
-                    "기준:N",
-                    title="기준",
-                ),
-                tooltip=[
-                    alt.Tooltip(
-                        "기준:N",
-                        title="기준",
-                    ),
-                    alt.Tooltip(
-                        "두께:Q",
-                        title="두께 (nm)",
-                        format=".1f",
-                    ),
-                ],
-            )
-        )
-
-        thickness_chart = (
-            wafer_points
-            + lot_mean_line
-            + limit_rules
-        ).properties(height=285)
-
-        st.altair_chart(
-            thickness_chart,
-            width="stretch",
-        )
-
-    # -----------------------------------------------------
-    # 오른쪽 위: 공정 변수 변화
-    # -----------------------------------------------------
-    with dashboard_col2:
-        st.markdown(
-            "#### 2. Setpoint 대비 공정 변수 변화"
-        )
-
-        process_deviation = pd.DataFrame({
-            "Lot": summary_df["lot"],
-            "Power (%)": (
-                (
-                    summary_df["mean_power_w"]
-                    - recipe["power_w"]
+    signal_candidates = [
+        {
+            "score": abs(
+                float(
+                    detected_row["mean_thickness_nm"]
+                    - baseline["mean_thickness_nm"]
                 )
-                / recipe["power_w"]
-                * 100
+            ) / 0.8,
+            "text": (
+                f"평균 두께가 정상 기준보다 "
+                f"{detected_row['mean_thickness_nm'] - baseline['mean_thickness_nm']:+.2f} nm 변했습니다."
             ),
-            "Ar Flow (%)": (
-                (
-                    summary_df["mean_ar_flow_sccm"]
-                    - recipe["ar_flow_sccm"]
+        },
+        {
+            "score": abs(
+                float(
+                    detected_row["mean_power_w"]
+                    - baseline["mean_power_w"]
                 )
-                / recipe["ar_flow_sccm"]
-                * 100
+            ) / max(recipe["power_w"] * 0.009, 4.5),
+            "text": (
+                f"실제 전원 출력이 정상 기준보다 "
+                f"{detected_row['mean_power_w'] - baseline['mean_power_w']:+.2f} W 변했습니다."
             ),
-            "Pressure (%)": (
-                (
-                    summary_df["mean_pressure_mtorr"]
-                    - recipe["pressure_mtorr"]
+        },
+        {
+            "score": abs(
+                float(
+                    detected_row["mean_ar_flow_sccm"]
+                    - baseline["mean_ar_flow_sccm"]
                 )
-                / recipe["pressure_mtorr"]
-                * 100
+            ) / 0.7,
+            "text": (
+                f"실제 Ar 유량이 정상 기준보다 "
+                f"{detected_row['mean_ar_flow_sccm'] - baseline['mean_ar_flow_sccm']:+.2f} sccm 변했습니다."
             ),
-        })
-
-        process_long = process_deviation.melt(
-            id_vars="Lot",
-            var_name="공정 변수",
-            value_name="Setpoint 대비 편차 (%)",
-        )
-
-        zero_line = (
-            alt.Chart(pd.DataFrame({"기준": [0]}))
-            .mark_rule(strokeDash=[4, 4])
-            .encode(y="기준:Q")
-        )
-
-        process_chart = (
-            alt.Chart(process_long)
-            .mark_line(point=True, strokeWidth=2.3)
-            .encode(
-                x=alt.X(
-                    "Lot:Q",
-                    axis=lot_axis,
-                    scale=alt.Scale(
-                        domain=[
-                            lot_min - 0.4,
-                            lot_max + 0.4,
-                        ]
-                    ),
-                ),
-                y=alt.Y(
-                    "Setpoint 대비 편차 (%):Q",
-                    title="Setpoint 대비 편차 (%)",
-                ),
-                color=alt.Color(
-                    "공정 변수:N",
-                    title="공정 변수",
-                ),
-                tooltip=[
-                    alt.Tooltip(
-                        "Lot:Q",
-                        title="Lot",
-                        format=".0f",
-                    ),
-                    alt.Tooltip(
-                        "공정 변수:N",
-                        title="공정 변수",
-                    ),
-                    alt.Tooltip(
-                        "Setpoint 대비 편차 (%):Q",
-                        title="편차 (%)",
-                        format=".3f",
-                    ),
-                ],
-            )
-            .properties(height=285)
-        )
-
-        st.altair_chart(
-            process_chart + zero_line,
-            width="stretch",
-        )
-
-    dashboard_col3, dashboard_col4 = st.columns(2)
-
-    # -----------------------------------------------------
-    # 왼쪽 아래: 면저항 추이
-    # -----------------------------------------------------
-    with dashboard_col3:
-        st.markdown("#### 3. 예상 면저항 추이")
-
-        resistance_reference = pd.DataFrame({
-            "기준 면저항": [
-                reference_sheet_resistance(
-                    active_material
+        },
+        {
+            "score": abs(
+                float(
+                    detected_row["mean_pressure_mtorr"]
+                    - baseline["mean_pressure_mtorr"]
                 )
-            ]
-        })
-
-        resistance_line = (
-            alt.Chart(summary_df)
-            .mark_line(point=True, strokeWidth=2.5)
-            .encode(
-                x=alt.X(
-                    "lot:Q",
-                    axis=lot_axis,
-                    scale=alt.Scale(
-                        domain=[
-                            lot_min - 0.4,
-                            lot_max + 0.4,
-                        ]
-                    ),
-                ),
-                y=alt.Y(
-                    "mean_sheet_resistance_ohm_sq:Q",
-                    title="Estimated sheet resistance (Ω/□)",
-                    scale=alt.Scale(zero=False),
-                ),
-                tooltip=[
-                    alt.Tooltip(
-                        "lot:Q",
-                        title="Lot",
-                        format=".0f",
-                    ),
-                    alt.Tooltip(
-                        "mean_sheet_resistance_ohm_sq:Q",
-                        title="예상 면저항 (Ω/□)",
-                        format=".4f",
-                    ),
-                ],
-            )
-        )
-
-        resistance_rule = (
-            alt.Chart(resistance_reference)
-            .mark_rule(strokeDash=[5, 4])
-            .encode(
-                y=alt.Y(
-                    "기준 면저항:Q",
-                    title="Estimated sheet resistance (Ω/□)",
-                ),
-                tooltip=[
-                    alt.Tooltip(
-                        "기준 면저항:Q",
-                        title="100 nm 기준 (Ω/□)",
-                        format=".4f",
+            ) / 0.20,
+            "text": (
+                f"실제 챔버 압력이 정상 기준보다 "
+                f"{detected_row['mean_pressure_mtorr'] - baseline['mean_pressure_mtorr']:+.3f} mTorr 변했습니다."
+            ),
+        },
+        {
+            "score": abs(
+                float(
+                    detected_row["mean_rate_nm_s"]
+                    - baseline["mean_rate_nm_s"]
+                )
+            ) / max(recipe["base_rate_nm_s"] * 0.006, 0.003),
+            "text": (
+                f"평균 증착률이 정상 기준보다 "
+                f"{detected_row['mean_rate_nm_s'] - baseline['mean_rate_nm_s']:+.4f} nm/s 변했습니다."
+            ),
+        },
+        {
+            "score": abs(
+                float(
+                    detected_row["mean_uniformity_pct"]
+                    - baseline["mean_uniformity_pct"]
+                )
+            ) / 0.5,
+            "text": (
+                f"평균 균일도 지표가 정상 기준보다 "
+                f"{detected_row['mean_uniformity_pct'] - baseline['mean_uniformity_pct']:+.2f}%p 변했습니다."
+            ),
+        },
+        {
+            "score": abs(
+                float(
+                    detected_row["mean_sheet_resistance_ohm_sq"]
+                    - baseline["mean_sheet_resistance_ohm_sq"]
+                )
+            ) / max(
+                abs(
+                    float(
+                        baseline["mean_sheet_resistance_ohm_sq"]
                     )
-                ],
-            )
-        )
-
-        resistance_chart = (
-            resistance_line
-            + resistance_rule
-        ).properties(height=260)
-
-        st.altair_chart(
-            resistance_chart,
-            width="stretch",
-        )
-
-    # -----------------------------------------------------
-    # 오른쪽 아래: Lot 요약
-    # -----------------------------------------------------
-    with dashboard_col4:
-        st.markdown("#### 4. Lot 요약")
-
-        compact_summary = summary_df[
-            [
-                "lot",
-                "mean_thickness_nm",
-                "std_thickness_nm",
-                "mean_uniformity_pct",
-                "mean_sheet_resistance_ohm_sq",
-                "oos_count",
-            ]
-        ].rename(
-            columns={
-                "lot": "Lot",
-                "mean_thickness_nm": "평균 두께 (nm)",
-                "std_thickness_nm": "두께 표준편차",
-                "mean_uniformity_pct": "평균 균일도 (%)",
-                "mean_sheet_resistance_ohm_sq": "예상 면저항 (Ω/□)",
-                "oos_count": "두께 이탈 수",
-            }
-        )
-
-        st.dataframe(
-            compact_summary,
-            hide_index=True,
-            width="stretch",
-            height=300,
-        )
-
-    raw_tab, full_summary_tab = st.tabs(
-        [
-            "Wafer별 Raw Data",
-            "전체 Lot 요약 데이터",
-        ]
-    )
-
-    with raw_tab:
-        st.dataframe(
-            raw_df,
-            hide_index=True,
-            width="stretch",
-            height=360,
-        )
-
-        st.download_button(
-            "Raw Data CSV 다운로드",
-            data=csv_bytes(raw_df),
-            file_name=(
-                f"sputter_{active_material}_raw_"
-                f"seed_{st.session_state.case_seed}.csv"
+                ) * 0.06,
+                0.01,
             ),
-            mime="text/csv",
+            "text": (
+                f"예상 면저항이 정상 기준보다 "
+                f"{detected_row['mean_sheet_resistance_ohm_sq'] - baseline['mean_sheet_resistance_ohm_sq']:+.4f} Ω/□ 변했습니다."
+            ),
+        },
+    ]
+
+    ranked = sorted(
+        signal_candidates,
+        key=lambda item: item["score"],
+        reverse=True,
+    )
+
+    return [
+        item["text"]
+        for item in ranked[:3]
+        if item["score"] >= 0.25
+    ]
+
+
+def render_ai_model_details(ai_bundle):
+    """AI 모델의 세부 성능을 개발 정보 영역에 표시합니다."""
+    if ai_bundle is None:
+        st.info(
+            "아직 준비된 AI 모델이 없습니다. "
+            "첫 진단을 제출하면 기본 모델이 자동으로 준비됩니다."
         )
+        return
 
-    with full_summary_tab:
-        st.dataframe(
-            summary_df,
-            hide_index=True,
-            width="stretch",
-            height=360,
-        )
-
-st.divider()
-st.subheader("5. AI 모델 학습 및 성능")
-
-st.caption(
-    "가상 Case를 자동 생성한 뒤 Lot 단위 특징으로 Random Forest를 학습합니다. "
-    "학습·시험 데이터는 Case 단위로 분리하며, 난이도별 성능과 오탐률을 따로 평가합니다."
-)
-
-ai_setting_col1, ai_setting_col2, ai_setting_col3, ai_setting_col4 = st.columns(
-    [1, 1, 1, 1]
-)
-
-with ai_setting_col1:
-    ai_case_count = st.selectbox(
-        "학습용 가상 Case 수",
-        options=[
-            500,
-            1000,
-            2000,
-            3000,
-        ],
-        index=3,
+    model_col1, model_col2, model_col3, model_col4 = st.columns(4)
+    model_col1.metric(
+        "학습용 문제",
+        f"{ai_bundle['case_count']:,}개",
     )
-
-with ai_setting_col2:
-    training_scope = st.selectbox(
-        "학습 난이도 범위",
-        options=[
-            "mixed",
-            "easy",
-            "normal",
-            "hard",
-            "expert",
-        ],
-        index=0,
-        format_func=lambda key: (
-            "전체 난이도 혼합"
-            if key == "mixed"
-            else DIFFICULTY_LABELS[key]
-        ),
-    )
-
-with ai_setting_col3:
-    ai_dataset_seed = st.number_input(
-        "학습 데이터 Seed",
-        min_value=1,
-        max_value=999_999_999,
-        value=20260805,
-        step=1,
-    )
-
-with ai_setting_col4:
-    st.write("")
-    st.write("")
-    train_ai_button = st.button(
-        "가상 데이터 생성 및 AI 학습",
-        type="primary",
-        width="stretch",
-    )
-
-if train_ai_button:
-    with st.spinner(
-        "난이도별 가상 Case 생성과 AI 학습을 진행하고 있습니다..."
-    ):
-        st.session_state.ai_bundle = train_ai_model(
-            int(ai_case_count),
-            int(ai_dataset_seed),
-            str(training_scope),
-        )
-
-if st.session_state.ai_bundle is None:
-    st.info(
-        "AI 진단을 사용하려면 위 버튼을 눌러 모델을 한 번 학습하세요. "
-        "현재 Case 난이도와 무관하게 기본값인 '전체 난이도 혼합' 학습을 권장합니다."
-    )
-else:
-    ai_bundle = st.session_state.ai_bundle
-
-    ai_metric_col1, ai_metric_col2, ai_metric_col3, ai_metric_col4, ai_metric_col5 = (
-        st.columns(5)
-    )
-
-    ai_metric_col1.metric(
-        "생성 Case",
-        f"{ai_bundle['case_count']:,}",
-    )
-    ai_metric_col2.metric(
-        "시험 정확도",
+    model_col2.metric(
+        "평가 정확도",
         f"{ai_bundle['accuracy'] * 100:.1f}%",
     )
-    ai_metric_col3.metric(
-        "Macro F1",
+    model_col3.metric(
+        "평균 F1 점수",
         f"{ai_bundle['macro_f1']:.3f}",
     )
-    ai_metric_col4.metric(
-        "시험 Case",
-        f"{ai_bundle['test_cases']:,}",
-    )
-    ai_metric_col5.metric(
-        "학습 범위",
-        (
-            "전체 혼합"
-            if ai_bundle[
-                "training_scope"
-            ] == "mixed"
-            else DIFFICULTY_LABELS[
-                ai_bundle[
-                    "training_scope"
-                ]
-            ]
-        ),
+    model_col4.metric(
+        "평가에 사용한 문제",
+        f"{ai_bundle['test_cases']:,}개",
     )
 
-    performance_col1, performance_col2 = st.columns(2)
+    detail_col1, detail_col2 = st.columns(2)
 
-    with performance_col1:
-        st.markdown("#### 혼동행렬")
+    with detail_col1:
+        st.markdown("##### 실제 원인과 AI 예측 비교")
 
-        matrix = ai_bundle[
-            "confusion_matrix"
-        ]
-
+        matrix = ai_bundle["confusion_matrix"]
         confusion_rows = []
 
         for actual_index, actual_key in enumerate(
@@ -4150,12 +3489,8 @@ else:
                 AI_CLASS_ORDER
             ):
                 confusion_rows.append({
-                    "실제": AI_LABELS[
-                        actual_key
-                    ],
-                    "예측": AI_LABELS[
-                        predicted_key
-                    ],
+                    "실제 발생 조건": AI_LABELS[actual_key],
+                    "AI 예측": AI_LABELS[predicted_key],
                     "건수": int(
                         matrix[
                             actual_index,
@@ -4173,7 +3508,7 @@ else:
             .mark_rect()
             .encode(
                 x=alt.X(
-                    "예측:N",
+                    "AI 예측:N",
                     title="AI 예측",
                     sort=[
                         AI_LABELS[key]
@@ -4181,8 +3516,8 @@ else:
                     ],
                 ),
                 y=alt.Y(
-                    "실제:N",
-                    title="실제 정답",
+                    "실제 발생 조건:N",
+                    title="실제 발생 조건",
                     sort=[
                         AI_LABELS[key]
                         for key in AI_CLASS_ORDER
@@ -4193,12 +3528,12 @@ else:
                     title="건수",
                 ),
                 tooltip=[
-                    "실제:N",
-                    "예측:N",
+                    "실제 발생 조건:N",
+                    "AI 예측:N",
                     "건수:Q",
                 ],
             )
-            .properties(height=310)
+            .properties(height=300)
         )
 
         heatmap_text = (
@@ -4206,14 +3541,14 @@ else:
             .mark_text()
             .encode(
                 x=alt.X(
-                    "예측:N",
+                    "AI 예측:N",
                     sort=[
                         AI_LABELS[key]
                         for key in AI_CLASS_ORDER
                     ],
                 ),
                 y=alt.Y(
-                    "실제:N",
+                    "실제 발생 조건:N",
                     sort=[
                         AI_LABELS[key]
                         for key in AI_CLASS_ORDER
@@ -4233,8 +3568,8 @@ else:
             width="stretch",
         )
 
-    with performance_col2:
-        st.markdown("#### 주요 판단 변수")
+    with detail_col2:
+        st.markdown("##### AI가 중요하게 본 변수")
 
         top_importance = (
             ai_bundle[
@@ -4272,7 +3607,7 @@ else:
                     ),
                 ],
             )
-            .properties(height=310)
+            .properties(height=300)
         )
 
         st.altair_chart(
@@ -4280,7 +3615,7 @@ else:
             width="stretch",
         )
 
-    st.markdown("#### 난이도별 성능")
+    st.markdown("##### 문제 난이도별 성능")
 
     difficulty_metrics = (
         ai_bundle[
@@ -4294,25 +3629,28 @@ else:
         "±1 Lot 이내",
         "원인 정확도",
         "Top-2 원인 적중률",
-        "정상 Case 오탐률",
+        "정상 문제 오탐률",
     ]
 
     for column in percentage_columns:
-        if column in difficulty_metrics:
-            difficulty_metrics[
-                column
-            ] = (
-                difficulty_metrics[
-                    column
-                ]
+        if column in difficulty_metrics.columns:
+            difficulty_metrics[column] = (
+                difficulty_metrics[column]
                 * 100
             ).round(1)
 
-    if "Macro F1" in difficulty_metrics:
+    if "Macro F1" in difficulty_metrics.columns:
+        difficulty_metrics = difficulty_metrics.rename(
+            columns={
+                "Macro F1": "평균 F1 점수",
+                "Top-2 원인 적중률": "상위 2개 원인 적중률",
+                "Lot 분류 정확도": "Lot 상태 분류 정확도",
+            }
+        )
         difficulty_metrics[
-            "Macro F1"
+            "평균 F1 점수"
         ] = difficulty_metrics[
-            "Macro F1"
+            "평균 F1 점수"
         ].round(3)
 
     st.dataframe(
@@ -4321,82 +3659,897 @@ else:
         width="stretch",
     )
 
-    st.caption(
-        "정확 일치는 최초 이상 Lot을 정확히 맞힌 비율이며, "
-        "±1 Lot은 한 Lot 이내로 탐지한 비율입니다. "
-        "전문가 난이도에서는 판단 유보와 오탐이 늘어날 수 있습니다."
-    )
 
+ensure_state()
+
+# 첫 진단 시 자동으로 준비할 기본 AI 모델 설정
+DEFAULT_AI_CASE_COUNT = 1000
+DEFAULT_AI_DATASET_SEED = 20260805
+DEFAULT_AI_TRAINING_SCOPE = "mixed"
+
+st.title(
+    "가상 반도체 박막 공정 이상 진단 훈련"
+)
+st.caption(
+    f"{APP_VERSION} · {LAST_UPDATED} 업데이트 · "
+    "증착 데이터를 분석해 이상 시점과 원인을 진단하고 AI 결과와 비교합니다."
+)
+
+top_info_col1, top_info_col2 = st.columns(2)
+
+with top_info_col1:
     with st.expander(
-        "원인별 분류 성능과 학습 데이터 확인",
+        "업데이트 내역",
         expanded=False,
     ):
-        report_df = (
-            ai_bundle[
-                "classification_report"
-            ].copy()
+        st.markdown(
+            """
+            - **v2.2.0**: 사용 방법 추가, 화면 순서 개편, 전체 한글 표현 개선, AI 결과를 진단 제출 후 공개
+            - **v2.1.0**: 문제 난이도 선택, 센서 편향·일시적 변동·부분 웨이퍼·복합 이상 추가
+            - **v2.0.0**: 합성 학습 데이터 생성과 Random Forest 기반 AI 진단 추가
+            - **v1.2.0~v1.2.2**: 분석 대시보드, 화면 폭, 그래프 축 개선
+            - **v1.1**: Al·Cu·Ti·Ta 선택과 예상 면저항 기능 추가
+            - **v1.0**: 기본 Sputter 공정 시뮬레이터 구현
+            """
         )
 
-        numeric_report_columns = [
-            column
-            for column in [
-                "정밀도",
-                "재현율",
-                "F1",
-            ]
-            if column in report_df.columns
-        ]
+with top_info_col2:
+    with st.expander(
+        "프로젝트 안내와 한계",
+        expanded=False,
+    ):
+        st.markdown(
+            """
+            - 실제 기업의 공정 조건이나 생산 데이터를 사용하지 않은 교육용 합성 데이터 시뮬레이터입니다.
+            - 재료별 증착률과 공정 조건은 비교 학습을 위해 단순화한 가정값입니다.
+            - 녹는점과 밀도는 참고 정보이며 Sputter 계산식에 직접 사용하지 않습니다.
+            - 예상 면저항은 기준 비저항과 생성된 두께를 이용한 추정값이며 실제 측정값이 아닙니다.
+            - AI 성능은 이 시뮬레이터가 생성한 미사용 합성 문제에 대한 결과이며 실제 생산 라인의 성능을 의미하지 않습니다.
+            """
+        )
 
-        report_df[
-            numeric_report_columns
-        ] = report_df[
-            numeric_report_columns
-        ].round(3)
+# =========================================================
+# 1. 사용 방법
+# =========================================================
+st.subheader("1. 사용 방법")
 
-        if "표본 수" in report_df.columns:
-            report_df["표본 수"] = (
-                report_df[
-                    "표본 수"
-                ]
-                .fillna(0)
-                .round()
-                .astype(int)
+with st.container(border=True):
+    st.markdown(
+        """
+        1. **증착 재료와 문제 난이도**를 선택합니다.
+        2. **새 문제 시작**을 눌러 선택한 조건을 적용합니다.
+        3. **다음 Lot 생산**을 두 번 눌러 정상 상태의 기준 데이터를 확보합니다.
+        4. **이상 발생**을 눌러 문제 상황을 시작합니다.
+        5. Lot을 추가로 생산하면서 그래프와 표의 변화를 분석합니다.
+        6. 이상이 처음 나타난 Lot, 추정 원인, 판단 근거와 대응 방안을 작성합니다.
+        7. **진단 제출하고 결과 확인**을 누르면 사용자 진단, AI 진단, 통계 기준과 실제 발생 조건을 비교할 수 있습니다.
+        """
+    )
+    st.info(
+        "AI 분석 결과는 힌트로 미리 제공되지 않습니다. "
+        "사용자가 진단을 제출한 뒤에만 공개됩니다."
+    )
+
+# =========================================================
+# 2. 문제 설정
+# =========================================================
+st.subheader("2. 문제 설정")
+
+material_options = list(
+    MATERIALS.keys()
+)
+difficulty_options = (
+    DIFFICULTY_ORDER
+)
+
+selector_col1, selector_col2 = (
+    st.columns(2)
+)
+
+with selector_col1:
+    selected_material = st.selectbox(
+        "증착 재료",
+        options=material_options,
+        index=material_options.index(
+            st.session_state.active_material
+        ),
+        format_func=lambda symbol: (
+            f"{symbol} · "
+            f"{MATERIALS[symbol]['name_ko']}"
+        ),
+    )
+
+with selector_col2:
+    selected_difficulty = st.selectbox(
+        "문제 난이도",
+        options=difficulty_options,
+        index=difficulty_options.index(
+            st.session_state.active_difficulty
+        ),
+        format_func=lambda key: (
+            f"{DIFFICULTY_LABELS[key]} · "
+            f"{DIFFICULTIES[key]['description']}"
+        ),
+    )
+
+if (
+    selected_material
+    != st.session_state.active_material
+    or selected_difficulty
+    != st.session_state.active_difficulty
+):
+    st.warning(
+        "선택한 재료와 난이도를 적용하려면 "
+        "아래의 '새 문제 시작'을 눌러주세요."
+    )
+
+active_material = (
+    st.session_state.active_material
+)
+active_difficulty = (
+    st.session_state.active_difficulty
+)
+material_props = MATERIALS[
+    active_material
+]
+recipe = get_recipe(
+    active_material
+)
+
+st.markdown(
+    f"#### {active_material} 박막 DC 마그네트론 스퍼터링 · "
+    f"{DIFFICULTY_LABELS[active_difficulty]}"
+)
+
+condition_col, recipe_col, property_col = (
+    st.columns(3)
+)
+
+with condition_col:
+    st.markdown(
+        f"""
+        **생산 조건**
+
+        - 기판: 300 mm Si 웨이퍼
+        - Lot 크기: {WAFERS_PER_LOT}장
+        - 증착막: {active_material}
+        - 문제 난이도: {DIFFICULTY_LABELS[active_difficulty]}
+        - 목표 두께: {TARGET_THICKNESS:.0f} nm
+        - 두께 관리 범위: {LOWER_SPEC:.0f}~{UPPER_SPEC:.0f} nm
+        - 균일도 관리 기준: {UNIFORMITY_LIMIT:.1f}% 이하
+        """
+    )
+
+with recipe_col:
+    st.dataframe(
+        pd.DataFrame({
+            "기준 공정 조건": [
+                "DC 전원 출력",
+                "Ar 유량",
+                "챔버 압력",
+                "증착 시간",
+                "기준 증착률",
+            ],
+            "설정값": [
+                f"{recipe['power_w']:.0f} W",
+                f"{recipe['ar_flow_sccm']:.0f} sccm",
+                f"{recipe['pressure_mtorr']:.1f} mTorr",
+                f"{recipe['deposition_time_s']:.1f} s",
+                f"{recipe['base_rate_nm_s']:.2f} nm/s",
+            ],
+        }),
+        hide_index=True,
+        width="stretch",
+    )
+
+with property_col:
+    st.dataframe(
+        pd.DataFrame({
+            "재료 정보": [
+                "기준 비저항",
+                "밀도",
+                "녹는점",
+                "100 nm 기준 예상 면저항",
+            ],
+            "값": [
+                (
+                    f"{material_props['bulk_resistivity_uohm_cm']}"
+                    " μΩ·cm"
+                ),
+                (
+                    f"{material_props['density_g_cm3']}"
+                    " g/cm³"
+                ),
+                (
+                    f"{material_props['melting_point_c']}"
+                    " °C"
+                ),
+                (
+                    f"{reference_sheet_resistance(active_material):.4f}"
+                    " Ω/□"
+                ),
+            ],
+            "사용 방식": [
+                "예상 면저항 계산",
+                "참고 정보",
+                "참고 정보",
+                "비교 기준",
+            ],
+        }),
+        hide_index=True,
+        width="stretch",
+    )
+
+st.caption(
+    material_props["description"]
+    + " · "
+    + DIFFICULTIES[
+        active_difficulty
+    ]["description"]
+)
+
+# =========================================================
+# 3. 공정 가동
+# =========================================================
+st.subheader("3. 공정 가동")
+
+seed_input = st.number_input(
+    "문제 재현 번호",
+    min_value=1,
+    max_value=999_999_999,
+    value=int(
+        st.session_state.case_seed
+    ),
+    step=1,
+    help=(
+        "같은 재료, 난이도, 재현 번호와 버튼 순서를 사용하면 "
+        "동일한 문제를 다시 만들 수 있습니다."
+    ),
+)
+
+button_col1, button_col2, button_col3 = (
+    st.columns(3)
+)
+
+with button_col1:
+    if st.button(
+        "새 문제 시작",
+        width="stretch",
+    ):
+        initialize_case(
+            material=selected_material,
+            difficulty=selected_difficulty,
+            seed=int(seed_input),
+        )
+        st.rerun()
+
+with button_col2:
+    if st.button(
+        "다음 Lot 생산",
+        type="primary",
+        width="stretch",
+    ):
+        new_lot = produce_lot()
+
+        oos_count = int(
+            (
+                (
+                    new_lot["thickness_nm"]
+                    < LOWER_SPEC
+                )
+                | (
+                    new_lot["thickness_nm"]
+                    > UPPER_SPEC
+                )
+            ).sum()
+        )
+
+        uniformity_fail_count = int(
+            (
+                new_lot["uniformity_pct"]
+                > UNIFORMITY_LIMIT
+            ).sum()
+        )
+
+        st.success(
+            f"{active_material} Lot "
+            f"{st.session_state.current_lot} 생산 완료 · "
+            f"두께 관리 범위 이탈 {oos_count}장 · "
+            f"균일도 기준 초과 {uniformity_fail_count}장"
+        )
+
+with button_col3:
+    if st.button(
+        "이상 발생",
+        width="stretch",
+    ):
+        success, message = inject_fault()
+
+        if success:
+            st.success(message)
+        else:
+            st.warning(message)
+
+if st.session_state.cause_key is None:
+    st.info(
+        "정상 Lot을 2개 생산한 뒤 '이상 발생'을 누르세요. "
+        "그다음 Lot을 추가로 생산하며 변화를 분석합니다."
+    )
+else:
+    st.info(
+        "이상 상황이 적용되었습니다. "
+        "이상 원인과 발생 시점은 진단 결과에서 공개됩니다. "
+        "현재 난이도에 따라 측정 노이즈, 일시적 변동, "
+        "센서 편향 또는 복합 이상이 포함될 수 있습니다."
+    )
+
+raw_df = (
+    st.session_state.raw_data
+)
+summary_df = summarize(
+    raw_df
+)
+
+metric_col1, metric_col2, metric_col3, metric_col4, metric_col5 = (
+    st.columns(5)
+)
+
+metric_col1.metric(
+    "증착 재료",
+    active_material,
+)
+metric_col2.metric(
+    "문제 난이도",
+    DIFFICULTY_LABELS[
+        active_difficulty
+    ],
+)
+metric_col3.metric(
+    "생산한 Lot",
+    st.session_state.current_lot,
+)
+metric_col4.metric(
+    "생산한 웨이퍼",
+    len(raw_df),
+)
+metric_col5.metric(
+    "재현 번호",
+    st.session_state.case_seed,
+)
+
+# =========================================================
+# 4. 데이터 분석
+# =========================================================
+st.subheader("4. 데이터 분석")
+
+if summary_df.empty:
+    st.info(
+        "'다음 Lot 생산'을 누르면 두께, 공정 변수, 예상 면저항과 "
+        "Lot 요약 데이터가 표시됩니다."
+    )
+else:
+    lot_min = int(
+        summary_df["lot"].min()
+    )
+    lot_max = int(
+        summary_df["lot"].max()
+    )
+    lot_count = max(
+        lot_max - lot_min + 1,
+        1,
+    )
+    lot_tick_count = min(
+        lot_count,
+        10,
+    )
+
+    lot_axis = alt.Axis(
+        title="Lot",
+        labelAngle=0,
+        tickCount=lot_tick_count,
+        tickMinStep=1,
+        labelOverlap="greedy",
+    )
+
+    thickness_min = min(
+        float(
+            raw_df[
+                "thickness_nm"
+            ].min()
+        ),
+        LOWER_SPEC,
+    )
+    thickness_max = max(
+        float(
+            raw_df[
+                "thickness_nm"
+            ].max()
+        ),
+        UPPER_SPEC,
+    )
+    thickness_span = max(
+        thickness_max
+        - thickness_min,
+        1.0,
+    )
+    thickness_margin = max(
+        thickness_span * 0.08,
+        0.25,
+    )
+    thickness_domain = [
+        thickness_min
+        - thickness_margin,
+        thickness_max
+        + thickness_margin,
+    ]
+
+    dashboard_col1, dashboard_col2 = (
+        st.columns(2)
+    )
+
+    with dashboard_col1:
+        st.markdown("#### 두께 추이")
+
+        wafer_points = (
+            alt.Chart(raw_df)
+            .mark_circle(
+                size=48,
+                opacity=0.42,
             )
+            .encode(
+                x=alt.X(
+                    "lot:Q",
+                    axis=lot_axis,
+                    scale=alt.Scale(
+                        domain=[
+                            lot_min - 0.4,
+                            lot_max + 0.4,
+                        ]
+                    ),
+                ),
+                y=alt.Y(
+                    "thickness_nm:Q",
+                    title="두께 (nm)",
+                    scale=alt.Scale(
+                        domain=thickness_domain,
+                        nice=True,
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "lot:Q",
+                        title="Lot",
+                        format=".0f",
+                    ),
+                    alt.Tooltip(
+                        "wafer:Q",
+                        title="웨이퍼",
+                    ),
+                    alt.Tooltip(
+                        "thickness_nm:Q",
+                        title="두께 (nm)",
+                        format=".2f",
+                    ),
+                ],
+            )
+        )
 
-        st.dataframe(
-            report_df,
-            hide_index=True,
+        lot_mean_line = (
+            alt.Chart(summary_df)
+            .mark_line(
+                point=True,
+                strokeWidth=2.5,
+            )
+            .encode(
+                x=alt.X(
+                    "lot:Q",
+                    axis=lot_axis,
+                    scale=alt.Scale(
+                        domain=[
+                            lot_min - 0.4,
+                            lot_max + 0.4,
+                        ]
+                    ),
+                ),
+                y=alt.Y(
+                    "mean_thickness_nm:Q",
+                    title="두께 (nm)",
+                    scale=alt.Scale(
+                        domain=thickness_domain,
+                        nice=True,
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "lot:Q",
+                        title="Lot",
+                        format=".0f",
+                    ),
+                    alt.Tooltip(
+                        "mean_thickness_nm:Q",
+                        title="Lot 평균 두께 (nm)",
+                        format=".3f",
+                    ),
+                ],
+            )
+        )
+
+        thickness_limits = pd.DataFrame({
+            "기준": [
+                "상한",
+                "목표",
+                "하한",
+            ],
+            "두께": [
+                UPPER_SPEC,
+                TARGET_THICKNESS,
+                LOWER_SPEC,
+            ],
+        })
+
+        limit_rules = (
+            alt.Chart(
+                thickness_limits
+            )
+            .mark_rule(
+                strokeDash=[5, 4]
+            )
+            .encode(
+                y=alt.Y(
+                    "두께:Q",
+                    title="두께 (nm)",
+                ),
+                strokeDash=alt.StrokeDash(
+                    "기준:N",
+                    title="관리 기준",
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "기준:N",
+                        title="관리 기준",
+                    ),
+                    alt.Tooltip(
+                        "두께:Q",
+                        title="두께 (nm)",
+                        format=".1f",
+                    ),
+                ],
+            )
+        )
+
+        st.altair_chart(
+            (
+                wafer_points
+                + lot_mean_line
+                + limit_rules
+            ).properties(height=285),
             width="stretch",
         )
 
+    with dashboard_col2:
         st.markdown(
-            f"- 학습 Case: **{ai_bundle['train_cases']:,}개**"
-            f" / 시험 Case: **{ai_bundle['test_cases']:,}개**"
-            f" / 전체 Lot 표본: **{len(ai_bundle['dataset']):,}개**"
+            "#### 기준값 대비 공정 변수 변화"
+        )
+
+        process_deviation = pd.DataFrame({
+            "Lot": summary_df["lot"],
+            "전원 출력 (%)": (
+                (
+                    summary_df[
+                        "mean_power_w"
+                    ]
+                    - recipe["power_w"]
+                )
+                / recipe["power_w"]
+                * 100
+            ),
+            "Ar 유량 (%)": (
+                (
+                    summary_df[
+                        "mean_ar_flow_sccm"
+                    ]
+                    - recipe[
+                        "ar_flow_sccm"
+                    ]
+                )
+                / recipe[
+                    "ar_flow_sccm"
+                ]
+                * 100
+            ),
+            "챔버 압력 (%)": (
+                (
+                    summary_df[
+                        "mean_pressure_mtorr"
+                    ]
+                    - recipe[
+                        "pressure_mtorr"
+                    ]
+                )
+                / recipe[
+                    "pressure_mtorr"
+                ]
+                * 100
+            ),
+        })
+
+        process_long = (
+            process_deviation.melt(
+                id_vars="Lot",
+                var_name="공정 변수",
+                value_name=(
+                    "기준값 대비 편차 (%)"
+                ),
+            )
+        )
+
+        zero_line = (
+            alt.Chart(
+                pd.DataFrame({
+                    "기준": [0]
+                })
+            )
+            .mark_rule(
+                strokeDash=[4, 4]
+            )
+            .encode(
+                y="기준:Q"
+            )
+        )
+
+        process_chart = (
+            alt.Chart(
+                process_long
+            )
+            .mark_line(
+                point=True,
+                strokeWidth=2.3,
+            )
+            .encode(
+                x=alt.X(
+                    "Lot:Q",
+                    axis=lot_axis,
+                    scale=alt.Scale(
+                        domain=[
+                            lot_min - 0.4,
+                            lot_max + 0.4,
+                        ]
+                    ),
+                ),
+                y=alt.Y(
+                    "기준값 대비 편차 (%):Q",
+                    title=(
+                        "기준값 대비 편차 (%)"
+                    ),
+                ),
+                color=alt.Color(
+                    "공정 변수:N",
+                    title="공정 변수",
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "Lot:Q",
+                        title="Lot",
+                        format=".0f",
+                    ),
+                    alt.Tooltip(
+                        "공정 변수:N",
+                        title="공정 변수",
+                    ),
+                    alt.Tooltip(
+                        "기준값 대비 편차 (%):Q",
+                        title="편차 (%)",
+                        format=".3f",
+                    ),
+                ],
+            )
+            .properties(height=285)
+        )
+
+        st.altair_chart(
+            process_chart
+            + zero_line,
+            width="stretch",
+        )
+
+    dashboard_col3, dashboard_col4 = (
+        st.columns(2)
+    )
+
+    with dashboard_col3:
+        st.markdown(
+            "#### 예상 면저항 추이"
+        )
+
+        resistance_reference = (
+            pd.DataFrame({
+                "기준 면저항": [
+                    reference_sheet_resistance(
+                        active_material
+                    )
+                ]
+            })
+        )
+
+        resistance_line = (
+            alt.Chart(summary_df)
+            .mark_line(
+                point=True,
+                strokeWidth=2.5,
+            )
+            .encode(
+                x=alt.X(
+                    "lot:Q",
+                    axis=lot_axis,
+                    scale=alt.Scale(
+                        domain=[
+                            lot_min - 0.4,
+                            lot_max + 0.4,
+                        ]
+                    ),
+                ),
+                y=alt.Y(
+                    "mean_sheet_resistance_ohm_sq:Q",
+                    title=(
+                        "예상 면저항 (Ω/□)"
+                    ),
+                    scale=alt.Scale(
+                        zero=False
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "lot:Q",
+                        title="Lot",
+                        format=".0f",
+                    ),
+                    alt.Tooltip(
+                        "mean_sheet_resistance_ohm_sq:Q",
+                        title=(
+                            "예상 면저항 (Ω/□)"
+                        ),
+                        format=".4f",
+                    ),
+                ],
+            )
+        )
+
+        resistance_rule = (
+            alt.Chart(
+                resistance_reference
+            )
+            .mark_rule(
+                strokeDash=[5, 4]
+            )
+            .encode(
+                y=alt.Y(
+                    "기준 면저항:Q",
+                    title=(
+                        "예상 면저항 (Ω/□)"
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "기준 면저항:Q",
+                        title=(
+                            "100 nm 기준 (Ω/□)"
+                        ),
+                        format=".4f",
+                    )
+                ],
+            )
+        )
+
+        st.altair_chart(
+            (
+                resistance_line
+                + resistance_rule
+            ).properties(height=260),
+            width="stretch",
+        )
+
+    with dashboard_col4:
+        st.markdown(
+            "#### Lot 요약"
+        )
+
+        compact_summary = (
+            summary_df[
+                [
+                    "lot",
+                    "mean_thickness_nm",
+                    "std_thickness_nm",
+                    "mean_uniformity_pct",
+                    "mean_sheet_resistance_ohm_sq",
+                    "oos_count",
+                ]
+            ]
+            .rename(
+                columns={
+                    "lot": "Lot",
+                    "mean_thickness_nm": (
+                        "평균 두께 (nm)"
+                    ),
+                    "std_thickness_nm": (
+                        "두께 표준편차"
+                    ),
+                    "mean_uniformity_pct": (
+                        "평균 균일도 (%)"
+                    ),
+                    "mean_sheet_resistance_ohm_sq": (
+                        "예상 면저항 (Ω/□)"
+                    ),
+                    "oos_count": (
+                        "두께 이탈 수"
+                    ),
+                }
+            )
+        )
+
+        st.dataframe(
+            compact_summary,
+            hide_index=True,
+            width="stretch",
+            height=300,
+        )
+
+    raw_tab, full_summary_tab = (
+        st.tabs(
+            [
+                "웨이퍼별 원시 데이터",
+                "전체 Lot 요약 데이터",
+            ]
+        )
+    )
+
+    with raw_tab:
+        st.dataframe(
+            raw_df,
+            hide_index=True,
+            width="stretch",
+            height=360,
         )
 
         st.download_button(
-            "AI 학습용 Lot 특징 CSV 다운로드",
+            "원시 데이터 CSV 내려받기",
             data=csv_bytes(
-                ai_bundle["dataset"]
+                raw_df
             ),
             file_name=(
-                "sputter_ai_training_features_"
-                f"{ai_bundle['case_count']}_cases_"
-                f"{ai_bundle['training_scope']}.csv"
+                f"sputter_{active_material}_raw_"
+                f"seed_{st.session_state.case_seed}.csv"
             ),
             mime="text/csv",
         )
 
-st.divider()
-st.subheader("6. 이상 진단")
+    with full_summary_tab:
+        st.dataframe(
+            summary_df,
+            hide_index=True,
+            width="stretch",
+            height=360,
+        )
 
-with st.form("diagnosis_form"):
-    guess_col1, guess_col2, guess_col3 = st.columns(3)
+# =========================================================
+# 5. 사용자 진단
+# =========================================================
+st.subheader("5. 사용자 진단")
+
+st.caption(
+    "그래프와 표를 분석한 뒤 진단을 제출하세요. "
+    "AI 분석과 실제 발생 조건은 제출 전에는 공개되지 않습니다."
+)
+
+with st.form(
+    "diagnosis_form"
+):
+    guess_col1, guess_col2, guess_col3 = (
+        st.columns(3)
+    )
 
     with guess_col1:
         guessed_lot = st.number_input(
-            "최초 이상 Lot",
+            "이상이 처음 나타난 Lot",
             min_value=1,
             max_value=max(
                 st.session_state.current_lot,
@@ -4407,81 +4560,106 @@ with st.form("diagnosis_form"):
         )
 
     with guess_col2:
-        guessed_cause = st.selectbox(
-            "예상 1순위 원인",
-            list(CAUSES.values()),
+        guessed_cause = (
+            st.selectbox(
+                "가장 가능성이 높은 원인",
+                list(
+                    CAUSES.values()
+                ),
+            )
         )
 
     with guess_col3:
-        guessed_secondary_cause = st.selectbox(
-            "예상 2순위 원인",
-            ["없음"]
-            + list(CAUSES.values()),
+        guessed_secondary_cause = (
+            st.selectbox(
+                "다음으로 가능성이 높은 원인",
+                ["없음"]
+                + list(
+                    CAUSES.values()
+                ),
+            )
         )
 
     evidence = st.text_area(
         "판단 근거",
         placeholder=(
-            "Actual 공정 변수, 증착률, 두께, "
-            "균일도, 예상 면저항 변화를 연결해 작성하세요."
+            "예: Lot 5부터 실제 챔버 압력이 상승했고, "
+            "증착률과 평균 두께는 감소했으며 균일도 지표가 악화되었습니다."
         ),
         height=110,
     )
 
-    additional_check = st.text_area(
-        "추가 확인 항목",
-        placeholder=(
-            "예: 장비 로그, MFC 교정 이력, "
-            "압력 센서, 타겟 사용 이력"
-        ),
-        height=90,
+    additional_check = (
+        st.text_area(
+            "추가로 확인할 항목",
+            placeholder=(
+                "예: 압력 센서 교정 이력, 압력 제어 밸브 로그, "
+                "진공 펌프 상태"
+            ),
+            height=90,
+        )
     )
 
-    corrective_action = st.text_area(
-        "조치 방안",
-        placeholder=(
-            "예: 장비 Hold, 관련 계통 점검, "
-            "Monitor Wafer 재검증"
-        ),
-        height=90,
+    corrective_action = (
+        st.text_area(
+            "대응 방안",
+            placeholder=(
+                "예: 장비 가동을 중지하고 압력 제어 계통을 점검한 뒤, "
+                "모니터 웨이퍼로 공정 상태를 다시 확인합니다."
+            ),
+            height=90,
+        )
     )
 
-    submit_diagnosis = st.form_submit_button(
-        "진단 제출 및 정답 비교",
-        use_container_width=True,
+    submit_diagnosis = (
+        st.form_submit_button(
+            "진단 제출하고 결과 확인",
+            width="stretch",
+        )
     )
 
 if submit_diagnosis:
     errors = []
 
-    if st.session_state.cause_key is None:
+    if (
+        st.session_state.cause_key
+        is None
+    ):
         errors.append(
-            "먼저 랜덤 이상을 예약해야 합니다."
+            "먼저 정상 Lot을 2개 생산한 뒤 "
+            "'이상 발생'을 눌러주세요."
         )
 
     if (
-        st.session_state.fault_start_lot is not None
+        st.session_state.fault_start_lot
+        is not None
         and st.session_state.current_lot
         < st.session_state.fault_start_lot
     ):
         errors.append(
-            "이상이 데이터에 나타날 때까지 "
-            "Lot을 더 생산해야 합니다."
+            "이상 신호가 데이터에 나타날 때까지 "
+            "Lot을 더 생산하세요."
         )
 
-    if len(evidence.strip()) < 30:
+    if len(
+        evidence.strip()
+    ) < 30:
         errors.append(
             "판단 근거를 30자 이상 작성하세요."
         )
 
-    if len(additional_check.strip()) < 15:
+    if len(
+        additional_check.strip()
+    ) < 15:
         errors.append(
-            "추가 확인 항목을 15자 이상 작성하세요."
+            "추가로 확인할 항목을 15자 이상 작성하세요."
         )
 
-    if len(corrective_action.strip()) < 15:
+    if len(
+        corrective_action.strip()
+    ) < 15:
         errors.append(
-            "조치 방안을 15자 이상 작성하세요."
+            "대응 방안을 15자 이상 작성하세요."
         )
 
     if errors:
@@ -4489,10 +4667,27 @@ if submit_diagnosis:
             st.error(error)
 
     else:
+        if (
+            st.session_state.ai_bundle
+            is None
+        ):
+            with st.spinner(
+                "사용자 진단과 비교할 AI 모델을 준비하고 있습니다..."
+            ):
+                st.session_state.ai_bundle = (
+                    train_ai_model(
+                        DEFAULT_AI_CASE_COUNT,
+                        DEFAULT_AI_DATASET_SEED,
+                        DEFAULT_AI_TRAINING_SCOPE,
+                    )
+                )
+
         actual_key = (
             st.session_state.cause_key
         )
-        actual_cause = CAUSES[actual_key]
+        actual_cause = (
+            CAUSES[actual_key]
+        )
         actual_secondary_key = (
             st.session_state.secondary_cause_key
         )
@@ -4507,31 +4702,73 @@ if submit_diagnosis:
         actual_lot = int(
             st.session_state.fault_start_lot
         )
-        automatic_lot = automatic_abnormal_lot(
-            summary_df
+
+        automatic_lot = (
+            automatic_abnormal_lot(
+                summary_df
+            )
         )
 
-        ai_diagnosis = ai_diagnose_current_case(
-            st.session_state.ai_bundle,
-            summary_df,
-            active_material,
-            active_difficulty,
+        ai_diagnosis = (
+            ai_diagnose_current_case(
+                st.session_state.ai_bundle,
+                summary_df,
+                active_material,
+                active_difficulty,
+            )
         )
 
         lot_correct = (
-            int(guessed_lot) == actual_lot
+            int(guessed_lot)
+            == actual_lot
         )
         cause_correct = (
-            guessed_cause == actual_cause
+            guessed_cause
+            == actual_cause
         )
         secondary_correct = (
             guessed_secondary_cause
             == actual_secondary_cause
         )
 
+        ai_fault_lot = (
+            ai_diagnosis[
+                "fault_lot"
+            ]
+            if ai_diagnosis
+            is not None
+            else None
+        )
+        ai_cause = (
+            ai_diagnosis[
+                "cause_label"
+            ]
+            if ai_diagnosis
+            is not None
+            else "AI 모델을 준비하지 못함"
+        )
+        ai_lot_correct = (
+            ai_fault_lot
+            == actual_lot
+        )
+        ai_cause_correct = (
+            ai_cause
+            == actual_cause
+        )
+
+        ai_signal_summary = (
+            build_ai_signal_summary(
+                summary=summary_df,
+                material=active_material,
+                detected_lot=ai_fault_lot,
+            )
+        )
+
         result = {
-            "timestamp": datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
+            "timestamp": (
+                datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
             ),
             "material": active_material,
             "difficulty": (
@@ -4542,14 +4779,22 @@ if submit_diagnosis:
             "case_seed": (
                 st.session_state.case_seed
             ),
-            "actual_fault_lot": actual_lot,
+            "actual_fault_lot": (
+                actual_lot
+            ),
             "guessed_fault_lot": int(
                 guessed_lot
             ),
             "lot_correct": lot_correct,
-            "actual_cause": actual_cause,
-            "guessed_cause": guessed_cause,
-            "cause_correct": cause_correct,
+            "actual_cause": (
+                actual_cause
+            ),
+            "guessed_cause": (
+                guessed_cause
+            ),
+            "cause_correct": (
+                cause_correct
+            ),
             "actual_secondary_cause": (
                 actual_secondary_cause
             ),
@@ -4560,53 +4805,70 @@ if submit_diagnosis:
                 secondary_correct
             ),
             "both_correct": (
-                lot_correct and cause_correct
+                lot_correct
+                and cause_correct
             ),
-            "auto_detected_lot": automatic_lot,
+            "auto_detected_lot": (
+                automatic_lot
+            ),
             "ai_fault_lot": (
-                ai_diagnosis["fault_lot"]
-                if ai_diagnosis is not None
-                else None
+                ai_fault_lot
             ),
             "ai_cause": (
-                ai_diagnosis["cause_label"]
-                if ai_diagnosis is not None
-                else "AI 모델 미학습"
+                ai_cause
+            ),
+            "ai_lot_correct": (
+                ai_lot_correct
+            ),
+            "ai_cause_correct": (
+                ai_cause_correct
             ),
             "ai_confidence": (
-                ai_diagnosis["confidence"]
-                if ai_diagnosis is not None
+                ai_diagnosis[
+                    "confidence"
+                ]
+                if ai_diagnosis
+                is not None
                 else None
             ),
             "ai_confidence_label": (
                 ai_diagnosis[
                     "confidence_label"
                 ]
-                if ai_diagnosis is not None
-                else "미학습"
+                if ai_diagnosis
+                is not None
+                else "미확인"
             ),
             "ai_top_causes": (
                 ai_diagnosis[
                     "top_causes"
                 ]
-                if ai_diagnosis is not None
+                if ai_diagnosis
+                is not None
                 else []
             ),
             "ai_composite_possible": (
                 ai_diagnosis[
                     "composite_possible"
                 ]
-                if ai_diagnosis is not None
+                if ai_diagnosis
+                is not None
                 else False
             ),
             "ai_prediction_table": (
                 ai_diagnosis[
                     "prediction_table"
                 ]
-                if ai_diagnosis is not None
+                if ai_diagnosis
+                is not None
                 else None
             ),
-            "evidence": evidence.strip(),
+            "ai_signal_summary": (
+                ai_signal_summary
+            ),
+            "evidence": (
+                evidence.strip()
+            ),
             "additional_check": (
                 additional_check.strip()
             ),
@@ -4622,126 +4884,274 @@ if submit_diagnosis:
             result
         )
 
-if st.session_state.last_result:
-    result = st.session_state.last_result
+# =========================================================
+# 6. 진단 결과 비교
+# =========================================================
+st.subheader("6. 진단 결과 비교")
 
-    actual_key = next(
-        key
-        for key, value in CAUSES.items()
-        if value == result["actual_cause"]
+if (
+    st.session_state.last_result
+    is None
+):
+    st.info(
+        "사용자 진단을 제출하면 사용자 판단, AI 분석, "
+        "통계 기준과 실제 발생 조건이 이곳에 표시됩니다."
+    )
+else:
+    result = (
+        st.session_state.last_result
     )
 
-    st.subheader("진단 결과")
+    ai_top_causes = result.get(
+        "ai_top_causes",
+        [],
+    )
 
-    result_col1, result_col2, result_col3, result_col4 = (
+    ai_primary = (
+        ai_top_causes[0][
+            "cause_label"
+        ]
+        if ai_top_causes
+        else result.get(
+            "ai_cause",
+            "원인을 특정하기 어려움",
+        )
+    )
+    ai_secondary = (
+        ai_top_causes[1][
+            "cause_label"
+        ]
+        if len(ai_top_causes) > 1
+        else "없음"
+    )
+
+    comparison_df = pd.DataFrame(
+        [
+            {
+                "분석 주체": "사용자",
+                "이상 시작 Lot": (
+                    result[
+                        "guessed_fault_lot"
+                    ]
+                ),
+                "가장 가능성이 높은 원인": (
+                    result[
+                        "guessed_cause"
+                    ]
+                ),
+                "다음으로 가능한 원인": (
+                    result[
+                        "guessed_secondary_cause"
+                    ]
+                ),
+            },
+            {
+                "분석 주체": "AI",
+                "이상 시작 Lot": (
+                    result[
+                        "ai_fault_lot"
+                    ]
+                    if result[
+                        "ai_fault_lot"
+                    ]
+                    is not None
+                    else "특정하지 못함"
+                ),
+                "가장 가능성이 높은 원인": (
+                    ai_primary
+                ),
+                "다음으로 가능한 원인": (
+                    ai_secondary
+                ),
+            },
+            {
+                "분석 주체": "통계 기준",
+                "이상 시작 Lot": (
+                    result[
+                        "auto_detected_lot"
+                    ]
+                    if result[
+                        "auto_detected_lot"
+                    ]
+                    is not None
+                    else "찾지 못함"
+                ),
+                "가장 가능성이 높은 원인": (
+                    "원인 분류 기능 없음"
+                ),
+                "다음으로 가능한 원인": (
+                    "-"
+                ),
+            },
+            {
+                "분석 주체": "실제 발생 조건",
+                "이상 시작 Lot": (
+                    result[
+                        "actual_fault_lot"
+                    ]
+                ),
+                "가장 가능성이 높은 원인": (
+                    result[
+                        "actual_cause"
+                    ]
+                ),
+                "다음으로 가능한 원인": (
+                    result[
+                        "actual_secondary_cause"
+                    ]
+                ),
+            },
+        ]
+    )
+
+    st.dataframe(
+        comparison_df,
+        hide_index=True,
+        width="stretch",
+    )
+
+    score_col1, score_col2, score_col3, score_col4 = (
         st.columns(4)
     )
 
-    result_col1.metric(
-        "이상 Lot",
+    score_col1.metric(
+        "사용자 이상 Lot",
         (
             "일치"
-            if result["lot_correct"]
+            if result[
+                "lot_correct"
+            ]
             else "불일치"
         ),
-        f"정답 Lot {result['actual_fault_lot']}",
+        f"실제 Lot {result['actual_fault_lot']}",
     )
-
-    result_col2.metric(
-        "이상 원인",
+    score_col2.metric(
+        "사용자 원인",
         (
             "일치"
-            if result["cause_correct"]
+            if result[
+                "cause_correct"
+            ]
             else "불일치"
         ),
-        result["actual_cause"],
+        result[
+            "actual_cause"
+        ],
     )
-
-    result_col3.metric(
-        "통계 기반 자동 탐지",
+    score_col3.metric(
+        "AI 이상 Lot",
         (
-            f"Lot {result['auto_detected_lot']}"
-            if result["auto_detected_lot"]
-            is not None
-            else "탐지 실패"
+            "일치"
+            if result[
+                "ai_lot_correct"
+            ]
+            else "불일치"
         ),
-    )
-
-    result_col4.metric(
-        "AI 자동 진단",
         (
-            f"Lot {result['ai_fault_lot']}"
-            if result.get("ai_fault_lot")
+            f"AI Lot {result['ai_fault_lot']}"
+            if result[
+                "ai_fault_lot"
+            ]
             is not None
-            else "모델 미학습/탐지 실패"
-        ),
-        result.get(
-            "ai_cause",
-            "",
+            else "특정하지 못함"
         ),
     )
+    score_col4.metric(
+        "AI 원인",
+        (
+            "일치"
+            if result[
+                "ai_cause_correct"
+            ]
+            else "불일치"
+        ),
+        ai_primary,
+    )
 
-    if (
-        result.get(
-            "ai_confidence"
-        )
-        is not None
-    ):
-        top_causes = result.get(
-            "ai_top_causes",
-            [],
+    result_col1, result_col2 = (
+        st.columns(2)
+    )
+
+    with result_col1:
+        st.markdown(
+            "#### AI 분석 결과"
         )
 
-        if top_causes:
-            first_cause = top_causes[0]
+        if ai_top_causes:
+            first_cause = (
+                ai_top_causes[0]
+            )
             second_cause = (
-                top_causes[1]
-                if len(top_causes) > 1
+                ai_top_causes[1]
+                if len(
+                    ai_top_causes
+                ) > 1
                 else None
             )
 
-            ai_text = (
-                f"**AI 예측:** Lot "
-                f"{result['ai_fault_lot']}부터 "
-                f"1순위 {first_cause['cause_label']} "
-                f"{first_cause['probability'] * 100:.1f}%"
+            st.markdown(
+                f"- 이상 시작 시점: **Lot {result['ai_fault_lot']}**"
+            )
+            st.markdown(
+                f"- 가장 가능성이 높은 원인: "
+                f"**{first_cause['cause_label']} "
+                f"({first_cause['probability'] * 100:.1f}%)**"
             )
 
             if second_cause:
-                ai_text += (
-                    f" · 2순위 "
-                    f"{second_cause['cause_label']} "
-                    f"{second_cause['probability'] * 100:.1f}%"
+                st.markdown(
+                    f"- 다음으로 가능한 원인: "
+                    f"**{second_cause['cause_label']} "
+                    f"({second_cause['probability'] * 100:.1f}%)**"
                 )
 
-            ai_text += (
-                f" · 신뢰도 "
-                f"{result.get('ai_confidence_label', '미정')}"
+            st.markdown(
+                f"- 예측 신뢰도: "
+                f"**{result.get('ai_confidence_label', '미확인')}**"
             )
-
-            st.markdown(ai_text)
 
             if result.get(
                 "ai_composite_possible",
                 False,
             ):
                 st.warning(
-                    "AI가 두 원인의 확률을 비슷하게 평가해 "
-                    "복합 이상 가능성을 표시했습니다."
+                    "두 원인의 예측 확률이 비슷해 "
+                    "복합 이상 가능성이 있습니다."
                 )
         else:
-            st.markdown(
-                "**AI 예측:** 이상 신호가 기준에 미달해 판단을 유보했습니다."
+            st.warning(
+                "AI가 이상 원인을 하나로 특정하지 못했습니다."
             )
 
+        if result.get(
+            "ai_signal_summary"
+        ):
+            st.markdown(
+                "##### AI 예측과 함께 확인된 주요 변화"
+            )
+            for index, signal in enumerate(
+                result[
+                    "ai_signal_summary"
+                ],
+                start=1,
+            ):
+                st.markdown(
+                    f"{index}. {signal}"
+                )
+
         with st.expander(
-            "AI Lot별 예측 결과",
+            "Lot별 AI 예측 결과 보기",
             expanded=False,
         ):
             ai_prediction_table = (
                 result[
                     "ai_prediction_table"
                 ].copy()
+                if result[
+                    "ai_prediction_table"
+                ]
+                is not None
+                else pd.DataFrame()
             )
 
             for probability_column in [
@@ -4751,7 +5161,7 @@ if st.session_state.last_result:
             ]:
                 if (
                     probability_column
-                    in ai_prediction_table
+                    in ai_prediction_table.columns
                 ):
                     ai_prediction_table[
                         probability_column
@@ -4768,100 +5178,322 @@ if st.session_state.last_result:
                 width="stretch",
             )
 
-    st.markdown(
-        f"**재료·난이도:** "
-        f"{result['material']} · "
-        f"{result.get('difficulty', '')}"
-    )
-    st.markdown(
-        f"**2순위 원인 제출/정답:** "
-        f"{result.get('guessed_secondary_cause', '없음')} / "
-        f"{result.get('actual_secondary_cause', '없음')}"
-    )
-    st.markdown(
-        f"**정답 패턴:** "
-        f"{CAUSE_EXPLANATIONS[actual_key]}"
-    )
-    st.markdown(
-        f"**작성한 판단 근거:** "
-        f"{result['evidence']}"
-    )
-    st.markdown(
-        f"**추가 확인 항목:** "
-        f"{result['additional_check']}"
-    )
-    st.markdown(
-        f"**조치 방안:** "
-        f"{result['corrective_action']}"
-    )
+    with result_col2:
+        st.markdown(
+            "#### 실제 발생 조건과 사용자 기록"
+        )
 
-st.divider()
-st.subheader("7. 누적 진단 이력")
+        actual_explanations = [
+            CAUSE_EXPLANATIONS[
+                next(
+                    key
+                    for key, value
+                    in CAUSES.items()
+                    if value
+                    == result[
+                        "actual_cause"
+                    ]
+                )
+            ]
+        ]
+
+        if (
+            result[
+                "actual_secondary_cause"
+            ]
+            != "없음"
+        ):
+            secondary_key = next(
+                key
+                for key, value
+                in CAUSES.items()
+                if value
+                == result[
+                    "actual_secondary_cause"
+                ]
+            )
+            actual_explanations.append(
+                CAUSE_EXPLANATIONS[
+                    secondary_key
+                ]
+            )
+
+        st.markdown(
+            f"- 실제 이상 시작 시점: "
+            f"**Lot {result['actual_fault_lot']}**"
+        )
+        st.markdown(
+            f"- 실제 주요 원인: "
+            f"**{result['actual_cause']}**"
+        )
+        st.markdown(
+            f"- 실제 추가 원인: "
+            f"**{result['actual_secondary_cause']}**"
+        )
+
+        st.markdown(
+            "##### 실제 데이터 변화"
+        )
+        for explanation in actual_explanations:
+            st.markdown(
+                f"- {explanation}"
+            )
+
+        st.markdown(
+            "##### 사용자가 작성한 내용"
+        )
+        st.markdown(
+            f"- 판단 근거: {result['evidence']}"
+        )
+        st.markdown(
+            f"- 추가 확인 항목: {result['additional_check']}"
+        )
+        st.markdown(
+            f"- 대응 방안: {result['corrective_action']}"
+        )
+
+# =========================================================
+# 7. 누적 진단 기록
+# =========================================================
+st.subheader("7. 누적 진단 기록")
 
 if st.session_state.history:
     history_df = pd.DataFrame(
         [
             {
                 key: value
-                for key, value in record.items()
+                for key, value
+                in record.items()
                 if key not in [
                     "ai_prediction_table",
                     "ai_top_causes",
+                    "ai_signal_summary",
                 ]
             }
-            for record in st.session_state.history
+            for record
+            in st.session_state.history
         ]
     )
 
-    total_cases = len(history_df)
-    lot_accuracy = (
-        history_df["lot_correct"].mean()
+    total_problems = len(
+        history_df
+    )
+    user_lot_accuracy = (
+        history_df[
+            "lot_correct"
+        ].mean()
         * 100
     )
-    cause_accuracy = (
-        history_df["cause_correct"].mean()
+    user_cause_accuracy = (
+        history_df[
+            "cause_correct"
+        ].mean()
         * 100
     )
-    both_accuracy = (
-        history_df["both_correct"].mean()
+    ai_lot_accuracy = (
+        history_df[
+            "ai_lot_correct"
+        ].mean()
+        * 100
+    )
+    ai_cause_accuracy = (
+        history_df[
+            "ai_cause_correct"
+        ].mean()
         * 100
     )
 
-    history_col1, history_col2, history_col3, history_col4 = (
-        st.columns(4)
+    history_col1, history_col2, history_col3, history_col4, history_col5 = (
+        st.columns(5)
     )
 
     history_col1.metric(
-        "완료 Case",
-        total_cases,
+        "완료한 문제",
+        total_problems,
     )
     history_col2.metric(
-        "이상 Lot 정확도",
-        f"{lot_accuracy:.1f}%",
+        "사용자 이상 Lot 정확도",
+        f"{user_lot_accuracy:.1f}%",
     )
     history_col3.metric(
-        "원인 정확도",
-        f"{cause_accuracy:.1f}%",
+        "사용자 원인 정확도",
+        f"{user_cause_accuracy:.1f}%",
     )
     history_col4.metric(
-        "동시 적중률",
-        f"{both_accuracy:.1f}%",
+        "AI 이상 Lot 정확도",
+        f"{ai_lot_accuracy:.1f}%",
+    )
+    history_col5.metric(
+        "AI 원인 정확도",
+        f"{ai_cause_accuracy:.1f}%",
+    )
+
+    display_history = (
+        history_df.rename(
+            columns={
+                "timestamp": "진단 시각",
+                "material": "재료",
+                "difficulty": "난이도",
+                "case_seed": "재현 번호",
+                "actual_fault_lot": "실제 이상 Lot",
+                "guessed_fault_lot": "사용자 추정 Lot",
+                "lot_correct": "사용자 Lot 일치",
+                "actual_cause": "실제 원인",
+                "guessed_cause": "사용자 추정 원인",
+                "cause_correct": "사용자 원인 일치",
+                "ai_fault_lot": "AI 추정 Lot",
+                "ai_cause": "AI 추정 원인",
+                "ai_lot_correct": "AI Lot 일치",
+                "ai_cause_correct": "AI 원인 일치",
+            }
+        )
     )
 
     st.dataframe(
-        history_df,
+        display_history,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
     st.download_button(
-        "진단 이력 CSV 다운로드",
-        data=csv_bytes(history_df),
-        file_name="diagnosis_history.csv",
+        "진단 기록 CSV 내려받기",
+        data=csv_bytes(
+            display_history
+        ),
+        file_name=(
+            "diagnosis_history.csv"
+        ),
         mime="text/csv",
     )
 
 else:
-    st.caption(
-        "아직 제출된 진단 이력이 없습니다."
+    st.info(
+        "아직 제출한 진단이 없습니다."
     )
+
+# =========================================================
+# 8. AI 모델 및 프로젝트 정보
+# =========================================================
+st.subheader("8. AI 모델 및 프로젝트 정보")
+
+with st.expander(
+    "AI가 어떻게 사용되는지 확인하기",
+    expanded=False,
+):
+    st.markdown(
+        """
+        이 앱의 AI는 **힌트 제공용이 아니라 사용자와 별도로 데이터를 분석하는 비교 대상**입니다.
+
+        - AI는 프로그램이 자동으로 생성한 여러 공정 문제를 학습합니다.
+        - 사용자가 진단을 제출하기 전에는 AI 결과를 표시하지 않습니다.
+        - 진단 제출 후 사용자 판단, AI 판단, 통계 기준과 실제 발생 조건을 함께 비교합니다.
+        - AI가 표시하는 주요 변화는 예측 시점의 두께, 공정 변수, 증착률, 균일도와 예상 면저항 변화입니다.
+        - AI 성능은 합성 데이터에 대한 평가 결과이며 실제 생산 라인의 진단 성능을 의미하지 않습니다.
+        """
+    )
+
+with st.expander(
+    "AI 모델 세부 성능과 고급 설정",
+    expanded=False,
+):
+    st.caption(
+        "일반 사용자는 이 설정을 조작하지 않아도 됩니다. "
+        "첫 진단을 제출하면 1,000개의 혼합 난이도 문제로 학습한 기본 모델이 자동으로 준비됩니다."
+    )
+
+    ai_setting_col1, ai_setting_col2, ai_setting_col3, ai_setting_col4 = (
+        st.columns(4)
+    )
+
+    with ai_setting_col1:
+        ai_case_count = st.selectbox(
+            "AI 학습용 문제 수",
+            options=[
+                500,
+                1000,
+                2000,
+                3000,
+            ],
+            index=1,
+        )
+
+    with ai_setting_col2:
+        training_scope = st.selectbox(
+            "AI 학습 데이터 구성",
+            options=[
+                "mixed",
+                "easy",
+                "normal",
+                "hard",
+                "expert",
+            ],
+            index=0,
+            format_func=lambda key: (
+                "전체 난이도 혼합"
+                if key == "mixed"
+                else DIFFICULTY_LABELS[key]
+            ),
+        )
+
+    with ai_setting_col3:
+        ai_dataset_seed = (
+            st.number_input(
+                "학습 데이터 재현 번호",
+                min_value=1,
+                max_value=999_999_999,
+                value=DEFAULT_AI_DATASET_SEED,
+                step=1,
+            )
+        )
+
+    with ai_setting_col4:
+        st.write("")
+        st.write("")
+        train_ai_button = (
+            st.button(
+                "AI 모델 다시 학습",
+                type="primary",
+                width="stretch",
+            )
+        )
+
+    if train_ai_button:
+        with st.spinner(
+            "학습용 문제를 생성하고 AI 모델을 다시 학습하고 있습니다..."
+        ):
+            st.session_state.ai_bundle = (
+                train_ai_model(
+                    int(
+                        ai_case_count
+                    ),
+                    int(
+                        ai_dataset_seed
+                    ),
+                    str(
+                        training_scope
+                    ),
+                )
+            )
+
+    render_ai_model_details(
+        st.session_state.ai_bundle
+    )
+
+    if (
+        st.session_state.ai_bundle
+        is not None
+    ):
+        st.download_button(
+            "AI 학습 데이터 CSV 내려받기",
+            data=csv_bytes(
+                st.session_state.ai_bundle[
+                    "dataset"
+                ]
+            ),
+            file_name=(
+                "sputter_ai_training_features_"
+                f"{st.session_state.ai_bundle['case_count']}_problems_"
+                f"{st.session_state.ai_bundle['training_scope']}.csv"
+            ),
+            mime="text/csv",
+        )
