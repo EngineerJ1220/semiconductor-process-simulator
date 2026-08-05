@@ -1,5 +1,7 @@
+import hashlib
 import random
 from datetime import datetime
+from io import BytesIO
 
 import altair as alt
 import matplotlib.pyplot as plt
@@ -191,7 +193,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v2.4.5"
+APP_VERSION = "v2.4.6"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -219,7 +221,7 @@ MATERIALS = {
         "density_g_cm3": 8.96,
         "melting_point_c": 1084.6,
         "wear_sensitivity": 0.009,
-        "description": "낮은 비저항을 갖는 금속 배선 비교 문제",
+        "description": "비저항이 낮은 금속 배선 비교 문제",
     },
     "Ti": {
         "name_ko": "타이타늄",
@@ -1865,6 +1867,9 @@ def ensure_state():
     if "history" not in st.session_state:
         st.session_state.history = []
 
+    if "history_import_hash" not in st.session_state:
+        st.session_state.history_import_hash = None
+
     if "case_ready" not in st.session_state:
         st.session_state.case_ready = False
 
@@ -3042,7 +3047,7 @@ def train_ai_model(
             "탐지 후 원인 판단 유보율": float(
                 detected_subset["abstained"].mean()
             ) if not detected_subset.empty else np.nan,
-            "기존 원인으로 확신한 비율": float(
+            "학습된 원인 중 하나로 단정한 비율": float(
                 subset["false_confident"].mean()
             ),
         })
@@ -3519,11 +3524,11 @@ def render_ai_model_details(ai_bundle):
 
     model_col1, model_col2, model_col3, model_col4 = st.columns(4)
     model_col1.metric("학습용 문제", f"{ai_bundle['case_count']:,}개")
-    model_col2.metric("난이도 정보 제거 후 정확도", f"{ai_bundle['accuracy'] * 100:.1f}%")
+    model_col2.metric("난이도 정보 제외 모델 정확도", f"{ai_bundle['accuracy'] * 100:.1f}%")
     model_col3.metric("평균 F1 점수", f"{ai_bundle['macro_f1']:.3f}")
     model_col4.metric("평가에 사용한 문제", f"{ai_bundle['test_cases']:,}개")
 
-    st.markdown("##### 실제로 사용할 수 없는 난이도 정보 제거 실험")
+    st.markdown("##### 현장에 없는 난이도 정보를 뺀 비교")
     ablation_df = pd.DataFrame([
         {
             "모델": "난이도 정보를 입력한 비교 모델",
@@ -3646,7 +3651,7 @@ def render_ai_model_details(ai_bundle):
         "목표 두께와 공정 설정값 대비 편차를 함께 사용해 이 조건을 별도로 평가합니다."
     )
 
-    st.markdown("##### 학습에 없던 원인 시험")
+    st.markdown("##### 학습에 없던 원인 평가")
     unknown_overall = ai_bundle["unknown_overall"]
     unknown_col1, unknown_col2, unknown_col3 = st.columns(3)
     unknown_col1.metric(
@@ -3658,20 +3663,20 @@ def render_ai_model_details(ai_bundle):
         f"{unknown_overall['abstention_rate_after_detection'] * 100:.1f}%",
     )
     unknown_col3.metric(
-        "기존 원인으로 확신한 비율",
+        "학습된 원인 중 하나로 단정한 비율",
         f"{unknown_overall['false_confident_rate'] * 100:.1f}%",
     )
     unknown_metrics = ai_bundle["unknown_metrics"].copy()
     for column in [
         "이상 탐지율",
         "탐지 후 원인 판단 유보율",
-        "기존 원인으로 확신한 비율",
+        "학습된 원인 중 하나로 단정한 비율",
     ]:
         unknown_metrics[column] = (unknown_metrics[column] * 100).round(1)
     st.dataframe(unknown_metrics, hide_index=True, width="stretch")
     st.caption(
         "증착 시간 과다, 두께 측정 장비 편향, 기판 온도 이상, 셔터 동작 이상은 학습 클래스에 넣지 않았습니다. "
-        "모델이 모르는 원인에서도 무조건 기존 네 원인 중 하나를 확신하는지 확인하는 별도 시험입니다."
+        "모델이 모르는 원인에서도 무조건 기존 네 원인 중 하나를 확신하는지 확인하는 별도 평가입니다."
     )
 
     st.markdown("##### 문제 난이도별 성능")
@@ -3731,6 +3736,7 @@ with top_info_col1:
     ):
         st.markdown(
             """
+            - **v2.4.6**: 풀이 기록 유실 안내와 상단 CSV 다운로드 추가, 기존 CSV 기록 불러오기·중복 제외 병합 기능 구현, 화면 문구 통일
             - **v2.4.5**: 사용 방법의 취소선 오류 수정, 정답 해설에 판단 근거·추가 확인·대응 방안 추가, 풀이 기록 화면 정리
             - **v2.4.4**: 결과 화면을 내 답과 실제 정답 중심으로 재구성, 중복 오답 카드 제거, 규칙 기반 탐지와 AI를 보조 분석 영역으로 통합
             - **v2.4.3**: 진단 서술형 답변의 최소 글자 수 제한 제거, 짧은 예시 문구와 입력창 높이 조정
@@ -4817,7 +4823,7 @@ if submit_diagnosis:
     ):
         errors.append(
             "이상 신호가 데이터에 나타날 때까지 "
-            "Lot을 더 생산하세요."
+            "Lot을 더 생산하면 분석할 수 있습니다."
         )
 
     if not evidence.strip():
@@ -5420,7 +5426,7 @@ else:
                         ]
                         if ai_diagnosis
                         is not None
-                        else "AI가 분석 결과를 만들지 못함"
+                        else "AI가 결과를 내지 못했습니다"
                     )
 
                     updated_result = (
@@ -5691,85 +5697,372 @@ st.subheader("7. 풀이 기록")
 st.caption(
     "지금까지 제출한 문제의 정답률과 상세 결과를 확인합니다."
 )
+st.warning(
+    "풀이 기록은 현재 브라우저 세션에만 저장됩니다. "
+    "페이지를 새로 고치거나 앱이 재시작되면 기록이 사라질 수 있으므로 "
+    "종료하기 전에 CSV 파일을 다운로드하세요."
+)
+
+
+def history_text(value, default=""):
+    if value is None:
+        return default
+
+    try:
+        if pd.isna(value):
+            return default
+    except (TypeError, ValueError):
+        pass
+
+    text = str(value).strip()
+    return text if text else default
+
+
+def history_lot_number(value):
+    text = history_text(value)
+
+    if text in {
+        "",
+        "찾지 못함",
+        "분석 안 함",
+        "None",
+        "nan",
+    }:
+        return None
+
+    text = text.replace("Lot", "").strip()
+
+    try:
+        return int(float(text))
+    except (TypeError, ValueError):
+        return None
+
+
+def history_match(value):
+    return history_text(value) == "일치"
+
+
+def history_identity(record):
+    return (
+        history_text(
+            record.get("timestamp")
+        ),
+        history_text(
+            record.get("case_seed")
+        ),
+        history_text(
+            record.get("material")
+        ),
+        history_text(
+            record.get("difficulty")
+        ),
+        history_text(
+            record.get("actual_fault_lot")
+        ),
+        history_text(
+            record.get("guessed_fault_lot")
+        ),
+        history_text(
+            record.get("actual_cause")
+        ),
+        history_text(
+            record.get("guessed_cause")
+        ),
+    )
+
+
+def history_record_from_csv(row):
+    material = history_text(
+        row.get("재료")
+    )
+    difficulty = history_text(
+        row.get("난이도")
+    )
+
+    difficulty_key = next(
+        (
+            key
+            for key, label
+            in DIFFICULTY_LABELS.items()
+            if label == difficulty
+        ),
+        "normal",
+    )
+
+    actual_fault_lot = (
+        history_lot_number(
+            row.get("실제 이상 Lot")
+        )
+    )
+    guessed_fault_lot = (
+        history_lot_number(
+            row.get("내가 고른 Lot")
+        )
+    )
+
+    actual_cause = history_text(
+        row.get("실제 주요 원인")
+    )
+    guessed_cause = history_text(
+        row.get("내가 고른 주요 원인")
+    )
+    actual_secondary_cause = history_text(
+        row.get("실제 추가 원인"),
+        "없음",
+    )
+    guessed_secondary_cause = history_text(
+        row.get("내가 고른 추가 원인"),
+        "없음",
+    )
+
+    ai_lot_text = history_text(
+        row.get("AI 추정 Lot"),
+        "분석 안 함",
+    )
+    ai_cause_text = history_text(
+        row.get("AI 추정 원인"),
+        "분석 안 함",
+    )
+    ai_ready = (
+        ai_lot_text != "분석 안 함"
+        or ai_cause_text != "분석 안 함"
+    )
+
+    case_seed_text = history_text(
+        row.get("문제 번호")
+    )
+    try:
+        case_seed = int(
+            float(case_seed_text)
+        )
+    except (TypeError, ValueError):
+        case_seed = case_seed_text
+
+    lot_correct = history_match(
+        row.get("Lot 판정")
+    )
+    cause_correct = history_match(
+        row.get("주요 원인 판정")
+    )
+    secondary_correct = history_match(
+        row.get("추가 원인 판정")
+    )
+
+    return {
+        "timestamp": history_text(
+            row.get("풀이 시각")
+        ),
+        "material": material,
+        "material_key": (
+            material
+            if material in MATERIALS
+            else "Al"
+        ),
+        "difficulty": difficulty,
+        "difficulty_key": difficulty_key,
+        "case_seed": case_seed,
+        "actual_fault_lot": (
+            actual_fault_lot
+        ),
+        "guessed_fault_lot": (
+            guessed_fault_lot
+        ),
+        "lot_correct": lot_correct,
+        "actual_cause": actual_cause,
+        "guessed_cause": guessed_cause,
+        "cause_correct": cause_correct,
+        "actual_secondary_cause": (
+            actual_secondary_cause
+        ),
+        "guessed_secondary_cause": (
+            guessed_secondary_cause
+        ),
+        "secondary_correct": (
+            secondary_correct
+        ),
+        "both_correct": (
+            lot_correct
+            and cause_correct
+        ),
+        "auto_detected_lot": None,
+        "summary_snapshot": None,
+        "ai_ready": ai_ready,
+        "ai_fault_lot": (
+            history_lot_number(
+                ai_lot_text
+            )
+            if ai_ready
+            else None
+        ),
+        "ai_cause": (
+            ai_cause_text
+            if ai_ready
+            else None
+        ),
+        "ai_lot_correct": (
+            history_match(
+                row.get("AI Lot 판정")
+            )
+            if ai_ready
+            else None
+        ),
+        "ai_cause_correct": (
+            history_match(
+                row.get("AI 원인 판정")
+            )
+            if ai_ready
+            else None
+        ),
+        "ai_confidence": None,
+        "ai_confidence_label": None,
+        "ai_top_causes": [],
+        "ai_composite_possible": False,
+        "ai_abstained": None,
+        "ai_prediction_table": None,
+        "ai_signal_summary": [],
+        "evidence": "",
+        "additional_check": "",
+        "corrective_action": "",
+        "imported_from_csv": True,
+    }
+
+
+with st.expander(
+    "기존 CSV 기록 불러오기",
+    expanded=False,
+):
+    st.caption(
+        "이 앱에서 다운로드한 풀이 기록 CSV를 불러오면 "
+        "현재 세션의 기록과 중복 없이 이어 붙입니다."
+    )
+
+    uploaded_history_file = st.file_uploader(
+        "풀이 기록 CSV 선택",
+        type=["csv"],
+        key="history_csv_uploader",
+    )
+
+    if uploaded_history_file is not None:
+        uploaded_bytes = (
+            uploaded_history_file.getvalue()
+        )
+        uploaded_hash = (
+            hashlib.sha256(
+                uploaded_bytes
+            ).hexdigest()
+        )
+
+        if (
+            uploaded_hash
+            == st.session_state.history_import_hash
+        ):
+            st.info(
+                "이 CSV 파일은 이미 불러왔습니다."
+            )
+        else:
+            try:
+                imported_df = pd.read_csv(
+                    BytesIO(
+                        uploaded_bytes
+                    )
+                )
+
+                required_columns = {
+                    "풀이 시각",
+                    "재료",
+                    "난이도",
+                    "문제 번호",
+                    "실제 이상 Lot",
+                    "내가 고른 Lot",
+                    "Lot 판정",
+                    "실제 주요 원인",
+                    "내가 고른 주요 원인",
+                    "주요 원인 판정",
+                    "실제 추가 원인",
+                    "내가 고른 추가 원인",
+                    "추가 원인 판정",
+                }
+
+                missing_columns = (
+                    required_columns
+                    - set(
+                        imported_df.columns
+                    )
+                )
+
+                if missing_columns:
+                    raise ValueError(
+                        "필수 열이 없습니다: "
+                        + ", ".join(
+                            sorted(
+                                missing_columns
+                            )
+                        )
+                    )
+
+                existing_ids = {
+                    history_identity(
+                        record
+                    )
+                    for record
+                    in st.session_state.history
+                }
+
+                added_count = 0
+                skipped_count = 0
+
+                for _, row in (
+                    imported_df.iterrows()
+                ):
+                    imported_record = (
+                        history_record_from_csv(
+                            row
+                        )
+                    )
+                    record_id = (
+                        history_identity(
+                            imported_record
+                        )
+                    )
+
+                    if record_id in existing_ids:
+                        skipped_count += 1
+                        continue
+
+                    st.session_state.history.append(
+                        imported_record
+                    )
+                    existing_ids.add(
+                        record_id
+                    )
+                    added_count += 1
+
+                st.session_state.history_import_hash = (
+                    uploaded_hash
+                )
+
+                if added_count:
+                    st.success(
+                        f"{added_count}개의 풀이 기록을 불러왔습니다. "
+                        f"중복 {skipped_count}개는 제외했습니다."
+                    )
+                else:
+                    st.info(
+                        "새로 추가할 기록이 없습니다. "
+                        f"중복 {skipped_count}개를 제외했습니다."
+                    )
+
+            except Exception as error:
+                st.error(
+                    "풀이 기록 CSV를 불러오지 못했습니다. "
+                    f"파일 형식을 확인해주세요. ({error})"
+                )
+
 
 if st.session_state.history:
     history_df = pd.DataFrame(
         st.session_state.history
     )
-
-    total_problems = len(
-        history_df
-    )
-    user_lot_accuracy = (
-        history_df[
-            "lot_correct"
-        ].fillna(False).mean()
-        * 100
-    )
-    user_cause_accuracy = (
-        history_df[
-            "cause_correct"
-        ].fillna(False).mean()
-        * 100
-    )
-    user_secondary_accuracy = (
-        history_df[
-            "secondary_correct"
-        ].fillna(False).mean()
-        * 100
-    )
-
-    summary_col1, summary_col2, summary_col3, summary_col4 = (
-        st.columns(4)
-    )
-
-    summary_col1.metric(
-        "푼 문제 수",
-        total_problems,
-    )
-    summary_col2.metric(
-        "이상 시작 Lot 정답률",
-        f"{user_lot_accuracy:.1f}%",
-    )
-    summary_col3.metric(
-        "주요 원인 정답률",
-        f"{user_cause_accuracy:.1f}%",
-    )
-    summary_col4.metric(
-        "추가 원인 정답률",
-        f"{user_secondary_accuracy:.1f}%",
-    )
-
-    ai_history_df = history_df[
-        history_df[
-            "ai_ready"
-        ].fillna(False)
-    ]
-
-    if not ai_history_df.empty:
-        st.markdown(
-            "#### AI 비교 결과"
-        )
-        st.caption(
-            "AI 분석을 실행한 문제만 집계합니다."
-        )
-
-        ai_metric_col1, ai_metric_col2 = (
-            st.columns(2)
-        )
-
-        ai_metric_col1.metric(
-            "AI 이상 시작 Lot 일치율",
-            (
-                f"{ai_history_df['ai_lot_correct'].fillna(False).mean() * 100:.1f}%"
-            ),
-        )
-        ai_metric_col2.metric(
-            "AI 주요 원인 일치율",
-            (
-                f"{ai_history_df['ai_cause_correct'].fillna(False).mean() * 100:.1f}%"
-            ),
-        )
 
     user_history_rows = []
     ai_history_rows = []
@@ -5897,7 +6190,9 @@ if st.session_state.history:
                 "guessed_secondary_cause",
                 "없음",
             ),
-            "추가 원인 판정": secondary_result,
+            "추가 원인 판정": (
+                secondary_result
+            ),
         }
 
         ai_row = {
@@ -5913,13 +6208,19 @@ if st.session_state.history:
                 f"Lot {record.get('actual_fault_lot')}"
             ),
             "AI 추정 Lot": ai_lot_value,
-            "AI Lot 판정": ai_lot_result,
+            "AI Lot 판정": (
+                ai_lot_result
+            ),
             "실제 주요 원인": record.get(
                 "actual_cause",
                 "",
             ),
-            "AI 추정 원인": ai_cause_value,
-            "AI 원인 판정": ai_cause_result,
+            "AI 추정 원인": (
+                ai_cause_value
+            ),
+            "AI 원인 판정": (
+                ai_cause_result
+            ),
         }
 
         user_history_rows.append(
@@ -5931,10 +6232,105 @@ if st.session_state.history:
         download_rows.append({
             **user_row,
             "AI 추정 Lot": ai_lot_value,
-            "AI Lot 판정": ai_lot_result,
-            "AI 추정 원인": ai_cause_value,
-            "AI 원인 판정": ai_cause_result,
+            "AI Lot 판정": (
+                ai_lot_result
+            ),
+            "AI 추정 원인": (
+                ai_cause_value
+            ),
+            "AI 원인 판정": (
+                ai_cause_result
+            ),
         })
+
+    st.download_button(
+        "풀이 기록 CSV 다운로드",
+        data=csv_bytes(
+            pd.DataFrame(
+                download_rows
+            )
+        ),
+        file_name=(
+            "problem_solving_history.csv"
+        ),
+        mime="text/csv",
+        type="primary",
+        width="stretch",
+    )
+
+    total_problems = len(
+        history_df
+    )
+    user_lot_accuracy = (
+        history_df[
+            "lot_correct"
+        ].fillna(False).mean()
+        * 100
+    )
+    user_cause_accuracy = (
+        history_df[
+            "cause_correct"
+        ].fillna(False).mean()
+        * 100
+    )
+    user_secondary_accuracy = (
+        history_df[
+            "secondary_correct"
+        ].fillna(False).mean()
+        * 100
+    )
+
+    summary_col1, summary_col2, summary_col3, summary_col4 = (
+        st.columns(4)
+    )
+
+    summary_col1.metric(
+        "푼 문제 수",
+        total_problems,
+    )
+    summary_col2.metric(
+        "이상 시작 Lot 정답률",
+        f"{user_lot_accuracy:.1f}%",
+    )
+    summary_col3.metric(
+        "주요 원인 정답률",
+        f"{user_cause_accuracy:.1f}%",
+    )
+    summary_col4.metric(
+        "추가 원인 정답률",
+        f"{user_secondary_accuracy:.1f}%",
+    )
+
+    ai_history_df = history_df[
+        history_df[
+            "ai_ready"
+        ].fillna(False)
+    ]
+
+    if not ai_history_df.empty:
+        st.markdown(
+            "#### AI 비교 결과"
+        )
+        st.caption(
+            "AI 분석을 실행한 문제만 집계합니다."
+        )
+
+        ai_metric_col1, ai_metric_col2 = (
+            st.columns(2)
+        )
+
+        ai_metric_col1.metric(
+            "AI 이상 시작 Lot 일치율",
+            (
+                f"{ai_history_df['ai_lot_correct'].fillna(False).mean() * 100:.1f}%"
+            ),
+        )
+        ai_metric_col2.metric(
+            "AI 주요 원인 일치율",
+            (
+                f"{ai_history_df['ai_cause_correct'].fillna(False).mean() * 100:.1f}%"
+            ),
+        )
 
     with st.expander(
         "지금까지의 풀이 기록 보기",
@@ -5965,23 +6361,12 @@ if st.session_state.history:
                 width="stretch",
             )
 
-        st.download_button(
-            "전체 풀이 기록 CSV 다운로드",
-            data=csv_bytes(
-                pd.DataFrame(
-                    download_rows
-                )
-            ),
-            file_name=(
-                "problem_solving_history.csv"
-            ),
-            mime="text/csv",
-        )
-
 else:
     st.info(
-        "아직 완료한 문제가 없습니다. 진단을 제출하면 풀이 기록이 저장됩니다."
+        "아직 완료한 문제가 없습니다. "
+        "진단을 제출하거나 기존 풀이 기록 CSV를 불러오면 여기에 표시됩니다."
     )
+
 
 # =========================================================
 # 8. AI 모델 및 프로젝트 정보
@@ -6116,7 +6501,7 @@ with st.expander(
         is not None
     ):
         st.download_button(
-            "AI 학습 데이터 CSV 내려받기",
+            "AI 학습 데이터 CSV 다운로드",
             data=csv_bytes(
                 st.session_state.ai_bundle[
                     "dataset"
