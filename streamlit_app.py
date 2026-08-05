@@ -69,6 +69,117 @@ st.markdown(
             gap: 0.8rem;
         }
     }
+
+    /* 공정 현황판: PC에서는 4열, 모바일에서는 2열 */
+    .process-status-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin: 0.25rem 0 0.4rem 0;
+    }
+
+    .process-status-card {
+        min-width: 0;
+        padding: 0.85rem 1rem;
+        border: 1px solid rgba(127, 127, 127, 0.24);
+        border-radius: 0.75rem;
+        background: rgba(127, 127, 127, 0.07);
+    }
+
+    .process-status-label {
+        margin-bottom: 0.2rem;
+        font-size: 0.82rem;
+        opacity: 0.72;
+        white-space: nowrap;
+    }
+
+    .process-status-value {
+        overflow: hidden;
+        font-size: 1.65rem;
+        font-weight: 650;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .problem-number-line {
+        margin: 0.1rem 0 0.85rem 0;
+        font-size: 0.82rem;
+        text-align: right;
+        opacity: 0.7;
+    }
+
+    @media (max-width: 768px) {
+        [data-testid="stMainBlockContainer"],
+        .block-container {
+            padding-top: 0.7rem;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+
+        div[data-testid="stVerticalBlock"] {
+            gap: 0.55rem;
+        }
+
+        div[data-testid="stHorizontalBlock"] {
+            gap: 0.45rem;
+        }
+
+        h1 {
+            font-size: 1.75rem !important;
+            line-height: 1.25 !important;
+        }
+
+        h2 {
+            font-size: 1.45rem !important;
+            line-height: 1.3 !important;
+        }
+
+        h3 {
+            font-size: 1.2rem !important;
+            line-height: 1.35 !important;
+        }
+
+        .process-status-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem;
+            margin-top: 0.1rem;
+        }
+
+        .process-status-card {
+            padding: 0.58rem 0.68rem;
+            border-radius: 0.6rem;
+        }
+
+        .process-status-label {
+            margin-bottom: 0.1rem;
+            font-size: 0.7rem;
+        }
+
+        .process-status-value {
+            font-size: 1.18rem;
+        }
+
+        .problem-number-line {
+            margin-bottom: 0.55rem;
+            font-size: 0.72rem;
+            text-align: left;
+        }
+
+        div[data-testid="stAlert"] {
+            padding: 0.7rem 0.8rem;
+        }
+
+        div[data-testid="stDataFrame"] {
+            font-size: 0.82rem;
+        }
+
+        button[kind="primary"],
+        button[kind="secondary"] {
+            min-height: 2.55rem;
+        }
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -80,7 +191,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v2.4.1"
+APP_VERSION = "v2.4.2"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -427,6 +538,42 @@ SUMMARY_COLUMNS = [
     "mean_pressure_mtorr",
     "mean_rate_nm_s",
 ]
+
+
+RAW_DISPLAY_COLUMNS = {
+    "material": "증착 재료",
+    "lot": "Lot",
+    "wafer": "웨이퍼",
+    "lot_section": "Lot 구분",
+    "power_set_w": "전원 출력 설정값 (W)",
+    "power_actual_w": "실제 전원 출력 (W)",
+    "ar_flow_set_sccm": "Ar 유량 설정값 (sccm)",
+    "ar_flow_actual_sccm": "실제 Ar 유량 (sccm)",
+    "pressure_set_mtorr": "챔버 압력 설정값 (mTorr)",
+    "pressure_actual_mtorr": "실제 챔버 압력 (mTorr)",
+    "time_set_s": "증착 시간 설정값 (s)",
+    "time_actual_s": "실제 증착 시간 (s)",
+    "target_usage_h": "타겟 누적 사용 시간 (h)",
+    "deposition_rate_nm_s": "증착률 (nm/s)",
+    "thickness_nm": "박막 두께 (nm)",
+    "uniformity_pct": "균일도 지표 (%)",
+    "estimated_sheet_resistance_ohm_sq": "예상 면저항 (Ω/□)",
+}
+
+SUMMARY_DISPLAY_COLUMNS = {
+    "material": "증착 재료",
+    "lot": "Lot",
+    "lot_section": "Lot 구분",
+    "mean_thickness_nm": "평균 두께 (nm)",
+    "std_thickness_nm": "두께 표준편차 (nm)",
+    "mean_uniformity_pct": "평균 균일도 지표 (%)",
+    "mean_sheet_resistance_ohm_sq": "평균 예상 면저항 (Ω/□)",
+    "oos_count": "두께 기준 이탈 웨이퍼 수",
+    "mean_power_w": "평균 실제 전원 출력 (W)",
+    "mean_ar_flow_sccm": "평균 실제 Ar 유량 (sccm)",
+    "mean_pressure_mtorr": "평균 실제 챔버 압력 (mTorr)",
+    "mean_rate_nm_s": "평균 증착률 (nm/s)",
+}
 
 
 def empty_raw():
@@ -2716,7 +2863,7 @@ def train_ai_model(
                 lot_subset["target"],
                 lot_subset["prediction"],
             ),
-            "Macro F1": f1_score(
+            "평균 F1 점수": f1_score(
                 lot_subset["target"],
                 lot_subset["prediction"],
                 average="macro",
@@ -2731,7 +2878,7 @@ def train_ai_model(
             "원인 정확도": float(
                 (fault_cases["predicted_primary"] == fault_cases["primary_cause"]).mean()
             ) if not fault_cases.empty else np.nan,
-            "Top-2 원인 적중률": float(np.mean(top_two_hits))
+            "상위 2개 원인 적중률": float(np.mean(top_two_hits))
             if top_two_hits else np.nan,
             "원인 판단 유보율": float(fault_cases["abstained"].mean())
             if not fault_cases.empty else np.nan,
@@ -3117,7 +3264,7 @@ def build_ai_signal_summary(
     material,
     detected_lot,
 ):
-    """AI가 이상으로 본 Lot의 값을 목표값과 Recipe 설정값에 비교해 설명합니다."""
+    """AI가 이상으로 본 Lot의 값을 목표값과 공정 설정값에 비교해 설명합니다."""
     if (
         summary is None
         or summary.empty
@@ -3435,7 +3582,7 @@ def render_ai_model_details(ai_bundle):
     st.dataframe(start_metrics, hide_index=True, width="stretch")
     st.caption(
         "첫 Lot 또는 두 번째 Lot부터 이상이 시작된 문제에서는 초기 두 Lot 평균이 깨끗한 정상 기준이 아닙니다. "
-        "목표 두께와 Recipe 설정값 대비 편차를 함께 사용해 이 조건을 별도로 평가합니다."
+        "목표 두께와 공정 설정값 대비 편차를 함께 사용해 이 조건을 별도로 평가합니다."
     )
 
     st.markdown("##### 학습에 없던 원인 시험")
@@ -3473,18 +3620,18 @@ def render_ai_model_details(ai_bundle):
         "이상 Lot 정확 일치",
         "±1 Lot 이내",
         "원인 정확도",
-        "Top-2 원인 적중률",
+        "상위 2개 원인 적중률",
         "원인 판단 유보율",
         "정상 문제 오탐률",
     ]
     for column in percentage_columns:
         if column in difficulty_metrics.columns:
             difficulty_metrics[column] = (difficulty_metrics[column] * 100).round(1)
-    if "Macro F1" in difficulty_metrics.columns:
+    if "평균 F1 점수" in difficulty_metrics.columns:
         difficulty_metrics = difficulty_metrics.rename(
             columns={
-                "Macro F1": "평균 F1 점수",
-                "Top-2 원인 적중률": "상위 2개 원인 적중률",
+                "평균 F1 점수": "평균 F1 점수",
+                "상위 2개 원인 적중률": "상위 2개 원인 적중률",
                 "Lot 분류 정확도": "Lot 상태 분류 정확도",
             }
         )
@@ -3523,14 +3670,15 @@ with top_info_col1:
     ):
         st.markdown(
             """
-            - **v2.4.1**: 새 랜덤 문제와 재현 문제 분리, 쉬움·보통 이상 시작 범위 확대, 상승·하락 방향 균형화
+            - **v2.4.2**: 모바일 현황판 2×2 압축, 데이터 분석 영역에 Lot 생산 버튼 추가, 문제 번호와 표 명칭·열 이름 한글화
+            - **v2.4.1**: 새 문제와 동일 문제 다시 시작 기능 분리, 쉬움·보통 이상 시작 범위 확대, 상승·하락 방향 균형화
             - **v2.4.0**: 이상 발생 버튼 제거, 새 문제 시작 시 이상 조건 자동 설정, 난이도별 초기 Lot 안내 유지, 결과 비교 화면 단순화
             - **v2.3.2**: 쉬움·보통은 Lot 1~2를 정상 기준으로 보장하고, 어려움·전문가는 초기 이상을 허용하도록 문제 규칙과 AI 학습 데이터를 통일
             - **v2.3.1**: 진단 제출 후 실제 발생 조건을 먼저 공개하고, AI 비교는 선택 실행하도록 변경 · AI 설명 생성 오류 수정
             - **v2.3.0**: 난이도 입력 변수 제거, 초기 이상 학습, 미지 원인 시험, 두께 상승·하락 이상 추가
             - **v2.2.0**: 사용 방법 추가, 화면 순서 개편, 전체 한글 표현 개선, AI 결과를 진단 제출 후 공개
             - **v2.1.0**: 문제 난이도 선택, 센서 편향·일시적 변동·부분 웨이퍼·복합 이상 추가
-            - **v2.0.0**: 합성 학습 데이터 생성과 Random Forest 기반 AI 진단 추가
+            - **v2.0.0**: 합성 학습 데이터 생성과 랜덤 포레스트 기반 AI 진단 추가
             - **v1.2.0~v1.2.2**: 분석 대시보드, 화면 폭, 그래프 축 개선
             - **v1.1**: Al·Cu·Ti·Ta 선택과 예상 면저항 기능 추가
             - **v1.0**: 기본 Sputter 공정 시뮬레이터 구현
@@ -3561,7 +3709,7 @@ with st.container(border=True):
     st.markdown(
         """
         1. **증착 재료와 문제 난이도**를 선택합니다.
-        2. **새 랜덤 문제**를 누르면 재현 번호, 이상 원인, 방향과 시작 Lot을 새로 정합니다. 특정 문제는 **재현 번호로 다시 풀기**로 반복할 수 있습니다.
+        2. **새 랜덤 문제**를 누르면 문제 번호, 이상 원인, 변화 방향과 시작 Lot을 새로 정합니다. 현재 문제는 **같은 문제 다시 시작**으로 처음부터 다시 풀 수 있습니다.
         3. **쉬움·보통**에서는 Lot 1과 Lot 2가 정상 기준 Lot으로 자동 생성됩니다. 쉬움은 Lot 3~5, 보통은 Lot 3~7 중 무작위 시점부터 이상이 시작됩니다.
         4. **어려움·전문가**에서는 초기 정상 상태가 보장되지 않으며 Lot 1부터 이상이 포함될 수 있습니다.
         5. **다음 Lot 생산**을 누르면서 정상 유지, 두께 상승 또는 두께 하락 패턴을 분석합니다.
@@ -3624,7 +3772,7 @@ if (
 ):
     st.warning(
         "선택한 재료와 난이도를 적용하려면 "
-        "아래의 '새 랜덤 문제' 또는 '재현 번호로 다시 풀기'를 눌러주세요."
+        "아래에서 '새 랜덤 문제' 또는 '같은 문제 다시 시작'을 눌러주세요."
     )
 
 active_material = (
@@ -3662,7 +3810,7 @@ with condition_col:
         f"""
         **생산 조건**
 
-        - 기판: 300 mm Si 웨이퍼
+        - 기판: 300 mm 실리콘 웨이퍼
         - Lot 크기: {WAFERS_PER_LOT}장
         - 증착막: {active_material}
         - 문제 난이도: {DIFFICULTY_LABELS[active_difficulty]}
@@ -3677,7 +3825,7 @@ with recipe_col:
     st.dataframe(
         pd.DataFrame({
             "기준 공정 조건": [
-                "DC 전원 출력",
+                "직류 전원 출력",
                 "Ar 유량",
                 "챔버 압력",
                 "증착 시간",
@@ -3764,18 +3912,21 @@ if "seed_input" not in st.session_state:
     st.session_state.seed_input = int(st.session_state.case_seed)
 
 seed_input = st.number_input(
-    "문제 재현 번호",
+    "문제 번호",
     min_value=1,
     max_value=999_999_999,
     step=1,
     key="seed_input",
     help=(
-        "특정 문제를 다시 확인할 때 사용합니다. "
-        "새 랜덤 문제 버튼은 이 번호를 자동으로 바꿉니다."
+        "같은 문제를 처음부터 다시 시작하거나, "
+        "다른 사람과 동일한 문제를 확인할 때 사용합니다. "
+        "'새 랜덤 문제'를 누르면 번호가 자동으로 바뀝니다."
     ),
 )
 
-st.caption(f"현재 문제 재현 번호: {st.session_state.case_seed}")
+st.caption(
+    f"현재 진행 중인 문제 번호: {st.session_state.case_seed}"
+)
 
 def start_random_problem(
     material,
@@ -3804,6 +3955,37 @@ def replay_problem(
     )
 
 
+def produce_next_lot_with_message():
+    new_lot = produce_lot()
+
+    oos_count = int(
+        (
+            (
+                new_lot["thickness_nm"]
+                < LOWER_SPEC
+            )
+            | (
+                new_lot["thickness_nm"]
+                > UPPER_SPEC
+            )
+        ).sum()
+    )
+
+    uniformity_fail_count = int(
+        (
+            new_lot["uniformity_pct"]
+            > UNIFORMITY_LIMIT
+        ).sum()
+    )
+
+    return (
+        f"{st.session_state.active_material} Lot "
+        f"{st.session_state.current_lot} 생산 완료 · "
+        f"두께 기준 이탈 {oos_count}장 · "
+        f"균일도 기준 초과 {uniformity_fail_count}장"
+    )
+
+
 button_col1, button_col2, button_col3 = st.columns(3)
 
 with button_col1:
@@ -3820,7 +4002,7 @@ with button_col1:
 
 with button_col2:
     st.button(
-        "재현 번호로 다시 풀기",
+        "같은 문제 다시 시작",
         width="stretch",
         on_click=replay_problem,
         args=(
@@ -3833,34 +4015,10 @@ with button_col3:
     if st.button(
         "다음 Lot 생산",
         width="stretch",
+        key="top_next_lot",
     ):
-        new_lot = produce_lot()
-
-        oos_count = int(
-            (
-                (
-                    new_lot["thickness_nm"]
-                    < LOWER_SPEC
-                )
-                | (
-                    new_lot["thickness_nm"]
-                    > UPPER_SPEC
-                )
-            ).sum()
-        )
-
-        uniformity_fail_count = int(
-            (
-                new_lot["uniformity_pct"]
-                > UNIFORMITY_LIMIT
-            ).sum()
-        )
-
         st.success(
-            f"{active_material} Lot "
-            f"{st.session_state.current_lot} 생산 완료 · "
-            f"두께 관리 범위 이탈 {oos_count}장 · "
-            f"균일도 기준 초과 {uniformity_fail_count}장"
+            produce_next_lot_with_message()
         )
 
 if has_guaranteed_reference_lots(
@@ -3884,31 +4042,31 @@ summary_df = summarize(
     raw_df
 )
 
-metric_col1, metric_col2, metric_col3, metric_col4, metric_col5 = (
-    st.columns(5)
-)
-
-metric_col1.metric(
-    "증착 재료",
-    active_material,
-)
-metric_col2.metric(
-    "문제 난이도",
-    DIFFICULTY_LABELS[
-        active_difficulty
-    ],
-)
-metric_col3.metric(
-    "생산한 Lot",
-    st.session_state.current_lot,
-)
-metric_col4.metric(
-    "생산한 웨이퍼",
-    len(raw_df),
-)
-metric_col5.metric(
-    "재현 번호",
-    st.session_state.case_seed,
+st.markdown(
+    f"""
+    <div class="process-status-grid">
+        <div class="process-status-card">
+            <div class="process-status-label">증착 재료</div>
+            <div class="process-status-value">{active_material}</div>
+        </div>
+        <div class="process-status-card">
+            <div class="process-status-label">문제 난이도</div>
+            <div class="process-status-value">{DIFFICULTY_LABELS[active_difficulty]}</div>
+        </div>
+        <div class="process-status-card">
+            <div class="process-status-label">생산 Lot</div>
+            <div class="process-status-value">{st.session_state.current_lot}</div>
+        </div>
+        <div class="process-status-card">
+            <div class="process-status-label">웨이퍼 수</div>
+            <div class="process-status-value">{len(raw_df)}</div>
+        </div>
+    </div>
+    <div class="problem-number-line">
+        문제 번호: {st.session_state.case_seed}
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 # =========================================================
@@ -3916,10 +4074,27 @@ metric_col5.metric(
 # =========================================================
 st.subheader("4. 데이터 분석")
 
+if st.button(
+    "다음 Lot 생산",
+    type="primary",
+    width="stretch",
+    key="analysis_next_lot",
+    help=(
+        "데이터를 확인하면서 다음 Lot을 바로 생산합니다."
+    ),
+):
+    st.success(
+        produce_next_lot_with_message()
+    )
+    raw_df = st.session_state.raw_data
+    summary_df = summarize(
+        raw_df
+    )
+
 if summary_df.empty:
     st.info(
         "'다음 Lot 생산'을 누르면 두께, 공정 변수, 예상 면저항과 "
-        "Lot 요약 데이터가 표시됩니다."
+        "Lot별 요약 데이터가 표시됩니다."
     )
 else:
     display_summary_df = summary_df.copy()
@@ -4415,38 +4590,58 @@ else:
     raw_tab, full_summary_tab = (
         st.tabs(
             [
-                "웨이퍼별 원시 데이터",
-                "전체 Lot 요약 데이터",
+                "웨이퍼별 상세 데이터",
+                "Lot별 요약 데이터",
             ]
         )
     )
 
     with raw_tab:
         st.dataframe(
-            display_raw_df.rename(columns={"lot_section": "Lot 구분"}),
+            display_raw_df.rename(
+                columns=RAW_DISPLAY_COLUMNS
+            ),
             hide_index=True,
             width="stretch",
             height=360,
         )
 
         st.download_button(
-            "원시 데이터 CSV 내려받기",
+            "웨이퍼별 상세 데이터 CSV 다운로드",
             data=csv_bytes(
-                raw_df
+                raw_df.rename(
+                    columns=RAW_DISPLAY_COLUMNS
+                )
             ),
             file_name=(
-                f"sputter_{active_material}_raw_"
-                f"seed_{st.session_state.case_seed}.csv"
+                f"sputter_{active_material}_wafer_"
+                f"problem_{st.session_state.case_seed}.csv"
             ),
             mime="text/csv",
         )
 
     with full_summary_tab:
         st.dataframe(
-            display_summary_df.rename(columns={"lot_section": "Lot 구분"}),
+            display_summary_df.rename(
+                columns=SUMMARY_DISPLAY_COLUMNS
+            ),
             hide_index=True,
             width="stretch",
             height=360,
+        )
+
+        st.download_button(
+            "Lot별 요약 데이터 CSV 다운로드",
+            data=csv_bytes(
+                summary_df.rename(
+                    columns=SUMMARY_DISPLAY_COLUMNS
+                )
+            ),
+            file_name=(
+                f"sputter_{active_material}_lot_summary_"
+                f"problem_{st.session_state.case_seed}.csv"
+            ),
+            mime="text/csv",
         )
 
 # =========================================================
@@ -4458,7 +4653,7 @@ st.caption(
     (
         "Lot 1과 Lot 2를 정상 기준으로 삼아 이후 변화를 분석하세요. "
         if reference_lots_guaranteed
-        else "초기 정상 Lot이 보장되지 않으므로 목표 두께, 관리 범위와 Recipe 설정값을 기준으로 분석하세요. "
+        else "초기 정상 Lot이 보장되지 않으므로 목표 두께, 관리 범위와 공정 설정값을 기준으로 분석하세요. "
     )
     + "AI 분석과 실제 발생 조건은 제출 전에는 공개되지 않습니다."
 )
@@ -5423,7 +5618,7 @@ if st.session_state.history:
                 "timestamp": "진단 시각",
                 "material": "재료",
                 "difficulty": "난이도",
-                "case_seed": "재현 번호",
+                "case_seed": "문제 번호",
                 "actual_fault_lot": "실제 이상 Lot",
                 "guessed_fault_lot": "사용자 추정 Lot",
                 "lot_correct": "사용자 Lot 일치",
@@ -5475,7 +5670,7 @@ with st.expander(
         2. 전원 출력, Ar 유량, 챔버 압력과 타겟 상태 변화가 증착률, 두께, 균일도와 예상 면저항에 영향을 주도록 계산 규칙을 만들었습니다.
         3. 사용자는 생성된 Lot 데이터를 보고 이상 시작 시점과 원인을 직접 진단합니다.
         4. 통계 기준은 사람이 정한 관리 범위와 변화 기준으로 이상 시점만 탐지합니다.
-        5. AI는 Random Forest 분류 모델로 정상과 네 가지 이상 원인을 학습하고, 사용자의 진단과 별도로 원인을 예측합니다.
+        5. AI는 랜덤 포레스트 분류 모델로 정상과 네 가지 이상 원인을 학습하고, 사용자의 진단과 별도로 원인을 예측합니다.
         6. 난이도 정보는 실제 공정에서 얻을 수 없는 힌트이므로 AI 입력 변수에서 제외하고 평가 구분에만 사용합니다.
         7. 최종 목적은 높은 정확도 자체가 아니라 초기 이상, 미지 원인과 유사한 공정 신호에서 AI가 언제 왜 틀리는지 확인하는 것입니다.
         """
@@ -5547,7 +5742,7 @@ with st.expander(
     with ai_setting_col3:
         ai_dataset_seed = (
             st.number_input(
-                "학습 데이터 재현 번호",
+                "학습 데이터 생성 번호",
                 min_value=1,
                 max_value=999_999_999,
                 value=DEFAULT_AI_DATASET_SEED,
