@@ -191,7 +191,7 @@ LOWER_SPEC = 98.0
 UPPER_SPEC = 102.0
 UNIFORMITY_LIMIT = 3.0
 
-APP_VERSION = "v2.4.4"
+APP_VERSION = "v2.4.5"
 LAST_UPDATED = "2026-08-05"
 
 # 아래 수치는 실제 생산 Recipe가 아니라 교육용 비교 모델입니다.
@@ -275,6 +275,67 @@ CAUSE_EXPLANATIONS = {
         "타겟 침식이나 보상 제어로 증착률·두께·균일도·면저항이 변합니다. "
         "두께가 감소하거나 유지되거나 과보상으로 증가할 수 있습니다."
     ),
+}
+
+
+CAUSE_ANSWER_GUIDES = {
+    "power_drift": {
+        "evidence": (
+            "실제 전원 출력이 설정값에서 벗어나고, 같은 시점부터 "
+            "증착률·평균 두께·예상 면저항이 함께 변하는지 확인합니다."
+        ),
+        "additional_check": (
+            "전원 공급 장치 출력 로그, 전력 센서 교정 이력, "
+            "매칭 네트워크와 케이블·전극의 접촉 상태를 확인합니다."
+        ),
+        "corrective_action": (
+            "해당 Lot을 보류하고 전원 공급·측정 계통을 점검합니다. "
+            "설정값과 실제 출력이 일치하는지 확인한 뒤 모니터 웨이퍼를 생산해 "
+            "두께와 면저항이 정상 범위로 돌아왔는지 검증합니다."
+        ),
+    },
+    "flow_drop": {
+        "evidence": (
+            "실제 Ar 유량이 설정값에서 벗어나고, 챔버 압력과 증착률 및 "
+            "평균 두께·균일도 지표가 같은 시점부터 변하는지 확인합니다."
+        ),
+        "additional_check": (
+            "질량 유량 제어기 교정 상태, 가스 공급 압력, 밸브 동작 로그, "
+            "가스 배관의 누설이나 막힘 여부를 확인합니다."
+        ),
+        "corrective_action": (
+            "해당 Lot을 보류하고 유량 제어기와 가스 공급 계통을 점검합니다. "
+            "유량과 압력이 안정된 뒤 모니터 웨이퍼를 생산해 증착률·두께·균일도를 확인합니다."
+        ),
+    },
+    "pressure_rise": {
+        "evidence": (
+            "실제 챔버 압력이 설정값에서 벗어나고, 같은 시점부터 "
+            "증착률·평균 두께·균일도 지표와 예상 면저항이 함께 변하는지 확인합니다."
+        ),
+        "additional_check": (
+            "압력 센서 교정 이력, 스로틀 밸브 작동 로그, 진공 펌프 상태, "
+            "챔버와 배관의 누설 여부를 확인합니다."
+        ),
+        "corrective_action": (
+            "해당 Lot을 보류하고 압력 측정·제어 계통과 진공 계통을 점검합니다. "
+            "기저 압력과 공정 압력이 안정된 뒤 모니터 웨이퍼로 공정 복귀 여부를 검증합니다."
+        ),
+    },
+    "target_wear": {
+        "evidence": (
+            "전원 출력·Ar 유량·챔버 압력은 설정값에 가깝지만, 타겟 누적 사용 시간과 함께 "
+            "증착률·평균 두께·균일도 지표 또는 예상 면저항이 변하는지 확인합니다."
+        ),
+        "additional_check": (
+            "타겟 누적 사용 시간과 침식 형상, 타겟 냉각·고정 상태, "
+            "사전 스퍼터링 이력과 출력 보상 설정을 확인합니다."
+        ),
+        "corrective_action": (
+            "타겟 상태를 점검해 필요하면 교체하거나 출력 보상 조건을 다시 설정합니다. "
+            "챔버 컨디셔닝 후 모니터 웨이퍼를 생산해 증착률·두께·균일도와 면저항을 검증합니다."
+        ),
+    },
 }
 
 UNKNOWN_CAUSES = {
@@ -3670,6 +3731,7 @@ with top_info_col1:
     ):
         st.markdown(
             """
+            - **v2.4.5**: 사용 방법의 취소선 오류 수정, 정답 해설에 판단 근거·추가 확인·대응 방안 추가, 풀이 기록 화면 정리
             - **v2.4.4**: 결과 화면을 내 답과 실제 정답 중심으로 재구성, 중복 오답 카드 제거, 규칙 기반 탐지와 AI를 보조 분석 영역으로 통합
             - **v2.4.3**: 진단 서술형 답변의 최소 글자 수 제한 제거, 짧은 예시 문구와 입력창 높이 조정
             - **v2.4.2**: 모바일 현황판 2×2 압축, 데이터 분석 영역에 Lot 생산 버튼 추가, 문제 번호와 표 명칭·열 이름 한글화
@@ -3711,12 +3773,12 @@ with st.container(border=True):
     st.markdown(
         """
         1. **증착 재료와 문제 난이도**를 선택합니다.
-        2. **새 랜덤 문제**를 누르면 문제 번호, 이상 원인, 변화 방향과 시작 Lot을 새로 정합니다. 현재 문제는 **같은 문제 다시 시작**으로 처음부터 다시 풀 수 있습니다.
-        3. **쉬움·보통**에서는 Lot 1과 Lot 2가 정상 기준 Lot으로 자동 생성됩니다. 쉬움은 Lot 3~5, 보통은 Lot 3~7 중 무작위 시점부터 이상이 시작됩니다.
-        4. **어려움·전문가**에서는 초기 정상 상태가 보장되지 않으며 Lot 1부터 이상이 포함될 수 있습니다.
-        5. **다음 Lot 생산**을 누르면서 정상 유지, 두께 상승 또는 두께 하락 패턴을 분석합니다.
-        6. 이상이 처음 나타난 Lot과 원인을 추정하고, 판단 근거와 대응 방안을 작성합니다.
-        7. 진단을 제출하면 사용자 답과 실제 발생 조건을 먼저 비교하고, AI 분석은 원할 때만 확인합니다.
+        2. **새 랜덤 문제**를 누르면 새로운 공정 문제가 생성됩니다. 현재 문제를 처음부터 다시 풀 때는 **같은 문제 다시 시작**을 누릅니다.
+        3. **쉬움·보통**에서는 Lot 1과 Lot 2가 정상 기준 Lot으로 자동 생성됩니다. 쉬움에서는 Lot 3, 4, 5 중 한 시점에 이상이 시작되고, 보통에서는 Lot 3부터 7까지 중 한 시점에 이상이 시작됩니다.
+        4. **어려움·전문가**에서는 초기 Lot의 정상 여부가 공개되지 않으며 Lot 1부터 이상이 포함될 수 있습니다.
+        5. **다음 Lot 생산**을 누르면서 두께와 공정 변수의 변화를 확인합니다.
+        6. 이상이 처음 나타난 Lot과 원인을 추정한 뒤 판단 근거, 추가 확인 항목과 대응 방안을 작성합니다.
+        7. 진단을 제출하면 내 답과 실제 정답을 먼저 비교합니다. 규칙 기반 탐지와 AI 분석은 필요할 때만 확인합니다.
         """
     )
     st.info(
@@ -3793,7 +3855,7 @@ reference_lots_guaranteed = has_guaranteed_reference_lots(
     active_difficulty
 )
 initial_condition_text = (
-    "Lot 1~2 정상 기준 보장"
+    "Lot 1과 Lot 2 정상 기준 보장"
     if reference_lots_guaranteed
     else "초기 정상 상태 미보장"
 )
@@ -3896,7 +3958,7 @@ if has_guaranteed_reference_lots(
 ):
     st.info(
         "초기 Lot 안내: Lot 1과 Lot 2는 정상 상태의 기준 Lot입니다. "
-        "쉬움은 Lot 3~5, 보통은 Lot 3~7 중 무작위 시점부터 이상이 시작됩니다. "
+        "쉬움은 Lot 3부터 5까지 중 한 시점에, 보통은 Lot 3부터 7까지 중 한 시점에 이상이 시작됩니다. "
         "따라서 Lot 3이 정상일 수도 있습니다."
     )
 else:
@@ -5051,35 +5113,21 @@ else:
             f"3개 항목 중 {correct_count}개가 실제 정답과 일치합니다."
         )
 
-    with st.expander(
-        "내가 작성한 진단 내용 보기",
-        expanded=False,
-    ):
-        st.markdown(
-            f"- **판단 근거:** "
-            f"{result['evidence']}"
-        )
-        st.markdown(
-            f"- **추가 확인 항목:** "
-            f"{result['additional_check']}"
-        )
-        st.markdown(
-            f"- **대응 방안:** "
-            f"{result['corrective_action']}"
-        )
-
-    actual_explanations = [
-        CAUSE_EXPLANATIONS[
-            next(
-                key
-                for key, value
-                in CAUSES.items()
-                if value
-                == result[
-                    "actual_cause"
-                ]
-            )
+    actual_primary_key = next(
+        key
+        for key, value
+        in CAUSES.items()
+        if value
+        == result[
+            "actual_cause"
         ]
+    )
+
+    actual_cause_items = [
+        (
+            "주요 원인",
+            actual_primary_key,
+        )
     ]
 
     if (
@@ -5088,7 +5136,7 @@ else:
         ]
         != "없음"
     ):
-        secondary_key = next(
+        actual_secondary_key = next(
             key
             for key, value
             in CAUSES.items()
@@ -5097,27 +5145,104 @@ else:
                 "actual_secondary_cause"
             ]
         )
-        actual_explanations.append(
-            CAUSE_EXPLANATIONS[
-                secondary_key
-            ]
+        actual_cause_items.append(
+            (
+                "추가 원인",
+                actual_secondary_key,
+            )
         )
 
     with st.expander(
         "정답 해설 보기",
         expanded=False,
     ):
-        for explanation in (
-            actual_explanations
+        st.markdown(
+            f"- **실제 이상 시작:** "
+            f"Lot {result['actual_fault_lot']}"
+        )
+        st.markdown(
+            f"- **주요 원인:** "
+            f"{result['actual_cause']}"
+        )
+        st.markdown(
+            f"- **추가 원인:** "
+            f"{result['actual_secondary_cause']}"
+        )
+
+        st.divider()
+
+        for cause_role, cause_key in (
+            actual_cause_items
         ):
-            st.markdown(
-                f"- {explanation}"
+            answer_guide = (
+                CAUSE_ANSWER_GUIDES[
+                    cause_key
+                ]
             )
 
-    st.info(
-        "규칙 기반 탐지와 AI 분석은 정답이 아닙니다. "
-        "위의 실제 정답을 서로 다른 방식으로 추정하는 보조 분석입니다."
-    )
+            st.markdown(
+                f"#### {cause_role}: "
+                f"{CAUSES[cause_key]}"
+            )
+            st.markdown(
+                "**판단 근거**"
+            )
+            st.write(
+                f"Lot {result['actual_fault_lot']}부터 "
+                f"{answer_guide['evidence']}"
+            )
+
+            st.markdown(
+                "**추가로 확인할 항목**"
+            )
+            st.write(
+                answer_guide[
+                    "additional_check"
+                ]
+            )
+
+            st.markdown(
+                "**대응 방안**"
+            )
+            st.write(
+                answer_guide[
+                    "corrective_action"
+                ]
+            )
+
+            st.caption(
+                "난이도와 노이즈에 따라 일부 변화는 작게 보이거나 "
+                "다른 변수의 변화와 겹쳐 나타날 수 있습니다."
+            )
+
+    with st.expander(
+        "내가 작성한 내용 보기",
+        expanded=False,
+    ):
+        st.markdown(
+            "**판단 근거**"
+        )
+        st.write(
+            result["evidence"]
+        )
+
+        st.markdown(
+            "**추가로 확인할 항목**"
+        )
+        st.write(
+            result[
+                "additional_check"
+            ]
+        )
+
+        st.markdown(
+            "**대응 방안**"
+        )
+        st.write(
+            result[
+                "corrective_action"
+            ]
+        )
 
     with st.expander(
         "자동 분석 결과 비교 보기",
@@ -5127,7 +5252,8 @@ else:
         ),
     ):
         st.caption(
-            "규칙 기반 탐지는 사람이 정한 기준으로 이상 시점만 찾습니다. "
+            "아래 결과는 정답이 아니라 실제 정답을 추정한 보조 분석입니다. "
+            "규칙 기반 탐지는 사람이 정한 기준으로 이상 시점만 찾고, "
             "AI는 여러 공정 변수의 패턴을 학습해 이상 시점과 원인을 추정합니다."
         )
 
@@ -5559,27 +5685,16 @@ else:
 
 
 # =========================================================
-# 7. 누적 진단 기록
+# 7. 풀이 기록
 # =========================================================
-st.subheader("7. 누적 진단 기록")
+st.subheader("7. 풀이 기록")
+st.caption(
+    "지금까지 제출한 문제의 정답률과 상세 결과를 확인합니다."
+)
 
 if st.session_state.history:
     history_df = pd.DataFrame(
-        [
-            {
-                key: value
-                for key, value
-                in record.items()
-                if key not in [
-                    "ai_prediction_table",
-                    "ai_top_causes",
-                    "ai_signal_summary",
-                    "summary_snapshot",
-                ]
-            }
-            for record
-            in st.session_state.history
-        ]
+        st.session_state.history
     )
 
     total_problems = len(
@@ -5588,98 +5703,284 @@ if st.session_state.history:
     user_lot_accuracy = (
         history_df[
             "lot_correct"
-        ].mean()
+        ].fillna(False).mean()
         * 100
     )
     user_cause_accuracy = (
         history_df[
             "cause_correct"
-        ].mean()
+        ].fillna(False).mean()
         * 100
     )
+    user_secondary_accuracy = (
+        history_df[
+            "secondary_correct"
+        ].fillna(False).mean()
+        * 100
+    )
+
+    summary_col1, summary_col2, summary_col3, summary_col4 = (
+        st.columns(4)
+    )
+
+    summary_col1.metric(
+        "푼 문제 수",
+        total_problems,
+    )
+    summary_col2.metric(
+        "이상 시작 Lot 정답률",
+        f"{user_lot_accuracy:.1f}%",
+    )
+    summary_col3.metric(
+        "주요 원인 정답률",
+        f"{user_cause_accuracy:.1f}%",
+    )
+    summary_col4.metric(
+        "추가 원인 정답률",
+        f"{user_secondary_accuracy:.1f}%",
+    )
+
     ai_history_df = history_df[
         history_df[
             "ai_ready"
         ].fillna(False)
     ]
 
-    if ai_history_df.empty:
-        ai_lot_accuracy_text = "-"
-        ai_cause_accuracy_text = "-"
-    else:
-        ai_lot_accuracy_text = (
-            f"{ai_history_df['ai_lot_correct'].mean() * 100:.1f}%"
+    if not ai_history_df.empty:
+        st.markdown(
+            "#### AI 비교 결과"
         )
-        ai_cause_accuracy_text = (
-            f"{ai_history_df['ai_cause_correct'].mean() * 100:.1f}%"
+        st.caption(
+            "AI 분석을 실행한 문제만 집계합니다."
         )
 
-    history_col1, history_col2, history_col3, history_col4, history_col5 = (
-        st.columns(5)
-    )
-
-    history_col1.metric(
-        "완료한 문제",
-        total_problems,
-    )
-    history_col2.metric(
-        "사용자 이상 Lot 정확도",
-        f"{user_lot_accuracy:.1f}%",
-    )
-    history_col3.metric(
-        "사용자 원인 정확도",
-        f"{user_cause_accuracy:.1f}%",
-    )
-    history_col4.metric(
-        "AI 이상 Lot 정확도",
-        ai_lot_accuracy_text,
-    )
-    history_col5.metric(
-        "AI 원인 정확도",
-        ai_cause_accuracy_text,
-    )
-
-    display_history = (
-        history_df.rename(
-            columns={
-                "timestamp": "진단 시각",
-                "material": "재료",
-                "difficulty": "난이도",
-                "case_seed": "문제 번호",
-                "actual_fault_lot": "실제 이상 Lot",
-                "guessed_fault_lot": "사용자 추정 Lot",
-                "lot_correct": "사용자 Lot 일치",
-                "actual_cause": "실제 원인",
-                "guessed_cause": "사용자 추정 원인",
-                "cause_correct": "사용자 원인 일치",
-                "ai_fault_lot": "AI 추정 Lot",
-                "ai_cause": "AI 추정 원인",
-                "ai_lot_correct": "AI Lot 일치",
-                "ai_cause_correct": "AI 원인 일치",
-            }
+        ai_metric_col1, ai_metric_col2 = (
+            st.columns(2)
         )
-    )
 
-    st.dataframe(
-        display_history,
-        hide_index=True,
-        width="stretch",
-    )
+        ai_metric_col1.metric(
+            "AI 이상 시작 Lot 일치율",
+            (
+                f"{ai_history_df['ai_lot_correct'].fillna(False).mean() * 100:.1f}%"
+            ),
+        )
+        ai_metric_col2.metric(
+            "AI 주요 원인 일치율",
+            (
+                f"{ai_history_df['ai_cause_correct'].fillna(False).mean() * 100:.1f}%"
+            ),
+        )
 
-    st.download_button(
-        "진단 기록 CSV 내려받기",
-        data=csv_bytes(
-            display_history
-        ),
-        file_name=(
-            "diagnosis_history.csv"
-        ),
-        mime="text/csv",
-    )
+    user_history_rows = []
+    ai_history_rows = []
+    download_rows = []
+
+    for record in (
+        st.session_state.history
+    ):
+        lot_result = (
+            "일치"
+            if record.get(
+                "lot_correct",
+                False,
+            )
+            else "불일치"
+        )
+        cause_result = (
+            "일치"
+            if record.get(
+                "cause_correct",
+                False,
+            )
+            else "불일치"
+        )
+        secondary_result = (
+            "일치"
+            if record.get(
+                "secondary_correct",
+                False,
+            )
+            else "불일치"
+        )
+
+        ai_ready = bool(
+            record.get(
+                "ai_ready",
+                False,
+            )
+        )
+        ai_lot_value = (
+            (
+                f"Lot {record.get('ai_fault_lot')}"
+                if record.get(
+                    "ai_fault_lot"
+                )
+                is not None
+                else "찾지 못함"
+            )
+            if ai_ready
+            else "분석 안 함"
+        )
+        ai_cause_value = (
+            (
+                record.get(
+                    "ai_cause"
+                )
+                or "특정하지 못함"
+            )
+            if ai_ready
+            else "분석 안 함"
+        )
+        ai_lot_result = (
+            (
+                "일치"
+                if record.get(
+                    "ai_lot_correct",
+                    False,
+                )
+                else "불일치"
+            )
+            if ai_ready
+            else "분석 안 함"
+        )
+        ai_cause_result = (
+            (
+                "일치"
+                if record.get(
+                    "ai_cause_correct",
+                    False,
+                )
+                else "불일치"
+            )
+            if ai_ready
+            else "분석 안 함"
+        )
+
+        user_row = {
+            "풀이 시각": record.get(
+                "timestamp",
+                "",
+            ),
+            "재료": record.get(
+                "material",
+                "",
+            ),
+            "난이도": record.get(
+                "difficulty",
+                "",
+            ),
+            "문제 번호": record.get(
+                "case_seed",
+                "",
+            ),
+            "실제 이상 Lot": (
+                f"Lot {record.get('actual_fault_lot')}"
+            ),
+            "내가 고른 Lot": (
+                f"Lot {record.get('guessed_fault_lot')}"
+            ),
+            "Lot 판정": lot_result,
+            "실제 주요 원인": record.get(
+                "actual_cause",
+                "",
+            ),
+            "내가 고른 주요 원인": record.get(
+                "guessed_cause",
+                "",
+            ),
+            "주요 원인 판정": cause_result,
+            "실제 추가 원인": record.get(
+                "actual_secondary_cause",
+                "없음",
+            ),
+            "내가 고른 추가 원인": record.get(
+                "guessed_secondary_cause",
+                "없음",
+            ),
+            "추가 원인 판정": secondary_result,
+        }
+
+        ai_row = {
+            "풀이 시각": record.get(
+                "timestamp",
+                "",
+            ),
+            "문제 번호": record.get(
+                "case_seed",
+                "",
+            ),
+            "실제 이상 Lot": (
+                f"Lot {record.get('actual_fault_lot')}"
+            ),
+            "AI 추정 Lot": ai_lot_value,
+            "AI Lot 판정": ai_lot_result,
+            "실제 주요 원인": record.get(
+                "actual_cause",
+                "",
+            ),
+            "AI 추정 원인": ai_cause_value,
+            "AI 원인 판정": ai_cause_result,
+        }
+
+        user_history_rows.append(
+            user_row
+        )
+        ai_history_rows.append(
+            ai_row
+        )
+        download_rows.append({
+            **user_row,
+            "AI 추정 Lot": ai_lot_value,
+            "AI Lot 판정": ai_lot_result,
+            "AI 추정 원인": ai_cause_value,
+            "AI 원인 판정": ai_cause_result,
+        })
+
+    with st.expander(
+        "지금까지의 풀이 기록 보기",
+        expanded=False,
+    ):
+        user_tab, ai_tab = st.tabs(
+            [
+                "내 풀이",
+                "AI 비교",
+            ]
+        )
+
+        with user_tab:
+            st.dataframe(
+                pd.DataFrame(
+                    user_history_rows
+                ),
+                hide_index=True,
+                width="stretch",
+            )
+
+        with ai_tab:
+            st.dataframe(
+                pd.DataFrame(
+                    ai_history_rows
+                ),
+                hide_index=True,
+                width="stretch",
+            )
+
+        st.download_button(
+            "전체 풀이 기록 CSV 다운로드",
+            data=csv_bytes(
+                pd.DataFrame(
+                    download_rows
+                )
+            ),
+            file_name=(
+                "problem_solving_history.csv"
+            ),
+            mime="text/csv",
+        )
 
 else:
     st.info(
-        "아직 제출한 진단이 없습니다."
+        "아직 완료한 문제가 없습니다. 진단을 제출하면 풀이 기록이 저장됩니다."
     )
 
 # =========================================================
